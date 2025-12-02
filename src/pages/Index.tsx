@@ -7,6 +7,7 @@ import { AppointmentWidget } from "@/components/jarvis/AppointmentWidget";
 import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
+import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
 import { useJarvis } from "@/hooks/useJarvis";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -28,6 +29,7 @@ const Index = () => {
     deleteAppointment,
     lastAssistantMessage,
     updateWelcomeMessage,
+    addVoiceExchange,
   } = useJarvis(language);
 
   const { speak, stop, isSpeaking } = useSpeech({
@@ -38,18 +40,19 @@ const Index = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
 
   // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Speak assistant messages
+  // Speak assistant messages (only for text chat, not voice)
   useEffect(() => {
-    if (lastAssistantMessage && ttsEnabled) {
+    if (lastAssistantMessage && ttsEnabled && !voiceConversationOpen) {
       speak(lastAssistantMessage);
     }
-  }, [lastAssistantMessage, ttsEnabled, speak]);
+  }, [lastAssistantMessage, ttsEnabled, speak, voiceConversationOpen]);
 
   // Update welcome message when language changes
   useEffect(() => {
@@ -66,6 +69,10 @@ const Index = () => {
   const handleSend = (message: string) => {
     stop(); // Stop any ongoing speech
     sendMessage(message, language);
+  };
+
+  const handleVoiceMessage = (userMessage: string, assistantResponse: string) => {
+    addVoiceExchange(userMessage, assistantResponse);
   };
 
   return (
@@ -124,14 +131,19 @@ const Index = () => {
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 scroll-smooth scrollbar-hide">
-        {/* Welcome avatar */}
+        {/* Welcome avatar - now interactive */}
         {messages.length === 1 && (
           <div className="flex flex-col items-center py-8 animate-fade-in">
-            <JarvisAvatar size="lg" isThinking={isLoading || isSpeaking} />
+            <JarvisAvatar
+              size="lg"
+              isThinking={isLoading || isSpeaking}
+              interactive
+              onClick={() => setVoiceConversationOpen(true)}
+            />
             <p className="text-sm text-muted-foreground mt-4">
               {language === "en"
-                ? "Your AI assistant is ready"
-                : "Il tuo assistente AI è pronto"}
+                ? "Tap to start voice conversation"
+                : "Tocca per iniziare una conversazione vocale"}
             </p>
           </div>
         )}
@@ -152,6 +164,17 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Floating voice button when there are messages */}
+      {messages.length > 1 && (
+        <button
+          onClick={() => setVoiceConversationOpen(true)}
+          className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-gradient-accent shadow-glow flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40 animate-scale-in"
+          aria-label={language === "en" ? "Voice conversation" : "Conversazione vocale"}
+        >
+          <JarvisAvatar size="md" interactive />
+        </button>
+      )}
+
       {/* Input Area */}
       <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <ChatInput
@@ -168,6 +191,14 @@ const Index = () => {
 
       {/* Settings */}
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      {/* Voice Conversation Mode */}
+      <VoiceConversation
+        isOpen={voiceConversationOpen}
+        onClose={() => setVoiceConversationOpen(false)}
+        language={language}
+        onMessage={handleVoiceMessage}
+      />
     </div>
   );
 };
