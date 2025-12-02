@@ -2,45 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Mic, Send, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
-
-// Web Speech API type declarations
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionInstance extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: Event) => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognitionInstance;
-}
+import type { SpeechRecognitionInstance } from "@/types/speech";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -79,32 +41,33 @@ export const ChatInput = ({
 
   // Initialize and update speech recognition when language changes
   useEffect(() => {
-    const SpeechRecognition =
+    const SpeechRecognitionAPI =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (SpeechRecognitionAPI) {
       // Stop any existing recognition
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
 
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = languageCodes[language];
+      const recognition = new SpeechRecognitionAPI() as SpeechRecognitionInstance;
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = languageCodes[language];
 
-      recognitionRef.current.onresult = (event) => {
+      recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
           .map((result) => result[0].transcript)
           .join("");
         setInput(transcript);
       };
 
-      recognitionRef.current.onend = () => {
+      recognition.onend = () => {
         setIsListening(false);
       };
 
-      recognitionRef.current.onerror = () => {
+      recognition.onerror = () => {
         setIsListening(false);
       };
     }
@@ -206,11 +169,3 @@ export const ChatInput = ({
     </div>
   );
 };
-
-// Type declarations for Web Speech API
-declare global {
-  interface Window {
-    SpeechRecognition: SpeechRecognitionConstructor;
-    webkitSpeechRecognition: SpeechRecognitionConstructor;
-  }
-}

@@ -194,6 +194,25 @@ export const useJarvis = (language: Language) => {
     setAppointments((prev) => prev.filter((apt) => apt.id !== id));
   }, []);
 
+  const addVoiceExchange = useCallback(
+    (userText: string, assistantText: string) => {
+      const userMessage: Message = {
+        id: generateId(),
+        content: userText,
+        role: "user",
+        timestamp: new Date(),
+      };
+      const assistantMessage: Message = {
+        id: generateId(),
+        content: assistantText,
+        role: "assistant",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    },
+    []
+  );
+
   return {
     messages,
     isLoading,
@@ -207,5 +226,6 @@ export const useJarvis = (language: Language) => {
     deleteAppointment,
     lastAssistantMessage,
     updateWelcomeMessage,
+    addVoiceExchange,
   };
 };
