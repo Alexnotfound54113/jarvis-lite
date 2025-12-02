@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Mic, Send, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Language } from "@/hooks/useSpeech";
 
 // Web Speech API type declarations
 interface SpeechRecognitionEvent extends Event {
@@ -45,9 +46,20 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading?: boolean;
   placeholder?: string;
+  language?: Language;
 }
 
-export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anything..." }: ChatInputProps) => {
+const languageCodes = {
+  en: "en-US",
+  it: "it-IT",
+};
+
+export const ChatInput = ({
+  onSend,
+  isLoading,
+  placeholder = "Ask Jarvis anything...",
+  language = "en",
+}: ChatInputProps) => {
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -65,16 +77,21 @@ export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anythin
     adjustHeight();
   }, [input]);
 
+  // Initialize and update speech recognition when language changes
   useEffect(() => {
-    // Initialize speech recognition
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
+      // Stop any existing recognition
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = "en-US";
+      recognitionRef.current.lang = languageCodes[language];
 
       recognitionRef.current.onresult = (event) => {
         const transcript = Array.from(event.results)
@@ -95,11 +112,15 @@ export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anythin
     return () => {
       recognitionRef.current?.stop();
     };
-  }, []);
+  }, [language]);
 
   const toggleListening = async () => {
     if (!recognitionRef.current) {
-      alert("Speech recognition is not supported in your browser.");
+      alert(
+        language === "en"
+          ? "Speech recognition is not supported in your browser."
+          : "Il riconoscimento vocale non è supportato nel tuo browser."
+      );
       return;
     }
 
@@ -112,7 +133,11 @@ export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anythin
         recognitionRef.current.start();
         setIsListening(true);
       } catch {
-        alert("Please allow microphone access to use voice input.");
+        alert(
+          language === "en"
+            ? "Please allow microphone access to use voice input."
+            : "Consenti l'accesso al microfono per usare l'input vocale."
+        );
       }
     }
   };
@@ -147,7 +172,11 @@ export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anythin
           )}
           aria-label={isListening ? "Stop listening" : "Start voice input"}
         >
-          {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          {isListening ? (
+            <MicOff className="w-5 h-5" />
+          ) : (
+            <Mic className="w-5 h-5" />
+          )}
         </button>
 
         <textarea

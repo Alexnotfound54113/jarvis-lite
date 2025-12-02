@@ -111,7 +111,7 @@ export const useJarvis = (language: Language) => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [appointments] = useState<Appointment[]>(initialAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [lastAssistantMessage, setLastAssistantMessage] = useState<string | null>(null);
 
   // Update welcome message when language changes
@@ -170,13 +170,41 @@ export const useJarvis = (language: Language) => {
     );
   }, []);
 
+  const addTask = useCallback((task: Omit<Task, "id">) => {
+    const newTask: Task = {
+      ...task,
+      id: generateId(),
+    };
+    setTasks((prev) => [newTask, ...prev]);
+  }, []);
+
+  const deleteTask = useCallback((id: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+  }, []);
+
+  const addAppointment = useCallback((apt: Omit<Appointment, "id">) => {
+    const newApt: Appointment = {
+      ...apt,
+      id: generateId(),
+    };
+    setAppointments((prev) => [...prev, newApt].sort((a, b) => a.date.getTime() - b.date.getTime()));
+  }, []);
+
+  const deleteAppointment = useCallback((id: string) => {
+    setAppointments((prev) => prev.filter((apt) => apt.id !== id));
+  }, []);
+
   return {
     messages,
     isLoading,
     sendMessage,
     tasks,
     toggleTask,
+    addTask,
+    deleteTask,
     appointments,
+    addAppointment,
+    deleteAppointment,
     lastAssistantMessage,
     updateWelcomeMessage,
   };

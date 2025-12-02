@@ -21,7 +21,11 @@ const Index = () => {
     sendMessage,
     tasks,
     toggleTask,
+    addTask,
+    deleteTask,
     appointments,
+    addAppointment,
+    deleteAppointment,
     lastAssistantMessage,
     updateWelcomeMessage,
   } = useJarvis(language);
@@ -100,8 +104,19 @@ const Index = () => {
         >
           <div className="overflow-hidden">
             <div className="grid gap-4 sm:grid-cols-2">
-              <AppointmentWidget appointments={appointments} />
-              <TaskList tasks={tasks} onToggle={toggleTask} />
+              <AppointmentWidget
+                appointments={appointments}
+                onAdd={addAppointment}
+                onDelete={deleteAppointment}
+                language={language}
+              />
+              <TaskList
+                tasks={tasks}
+                onToggle={toggleTask}
+                onAdd={addTask}
+                onDelete={deleteTask}
+                language={language}
+              />
             </div>
           </div>
         </div>
@@ -147,6 +162,7 @@ const Index = () => {
               ? "Ask Jarvis anything..."
               : "Chiedi qualcosa a Jarvis..."
           }
+          language={language}
         />
       </div>
 
