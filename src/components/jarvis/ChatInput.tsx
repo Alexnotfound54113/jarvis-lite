@@ -44,9 +44,10 @@ interface SpeechRecognitionConstructor {
 interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading?: boolean;
+  placeholder?: string;
 }
 
-export const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
+export const ChatInput = ({ onSend, isLoading, placeholder = "Ask Jarvis anything..." }: ChatInputProps) => {
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -154,7 +155,7 @@ export const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Jarvis anything..."
+          placeholder={placeholder}
           rows={1}
           className="flex-1 bg-transparent resize-none text-[15px] placeholder:text-muted-foreground focus:outline-none py-2.5 px-1 max-h-[120px] scrollbar-hide"
         />
