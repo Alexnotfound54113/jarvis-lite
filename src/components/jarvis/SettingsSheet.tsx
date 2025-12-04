@@ -15,7 +15,7 @@ export const SettingsSheet = ({ open, onOpenChange }: SettingsSheetProps) => {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[320px] sm:w-[380px] glass border-l-jarvis-glass-border">
+      <SheetContent side="right" className="w-[320px] sm:w-[380px] glass border-l border-border">
         <SheetHeader>
           <SheetTitle className="text-lg font-semibold">Settings</SheetTitle>
         </SheetHeader>
