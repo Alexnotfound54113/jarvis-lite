@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const JARVIS_VOICE_ID = "612b878b113047d9a770c069c8b4fdfe";
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -14,11 +12,11 @@ serve(async (req) => {
 
   try {
     const { text } = await req.json();
-    const FISH_AUDIO_API_KEY = Deno.env.get('FISH_AUDIO_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-    if (!FISH_AUDIO_API_KEY) {
-      console.error('FISH_AUDIO_API_KEY is not configured');
-      throw new Error('FISH_AUDIO_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not configured');
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     if (!text || text.trim().length === 0) {
@@ -27,27 +25,34 @@ serve(async (req) => {
 
     console.log('Generating speech for text:', text.substring(0, 50) + '...');
 
-    const response = await fetch('https://api.fish.audio/v1/tts', {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${FISH_AUDIO_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: text,
-        reference_id: JARVIS_VOICE_ID,
-        format: 'mp3',
-        mp3_bitrate: 128,
+        model: 'tts-1',
+        input: text,
+        voice: 'onyx', // Deep, authoritative voice - closest to Jarvis
+        response_format: 'mp3',
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Fish Audio API error:', response.status, errorText);
-      throw new Error(`Fish Audio API error: ${response.status}`);
+      console.error('OpenAI TTS API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      throw new Error(`OpenAI TTS API error: ${response.status}`);
     }
 
-    // Return audio as binary
     const audioBuffer = await response.arrayBuffer();
     console.log('Speech generated successfully, size:', audioBuffer.byteLength);
 
