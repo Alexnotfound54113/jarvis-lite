@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Mic, Volume2 } from "lucide-react";
+import { X, Mic, Volume2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
-import type { SpeechRecognitionInstance } from "@/types/speech";
-import { sendMessageToAI, ChatMessage } from "@/lib/openai";
-import { speakWithJarvis, stopJarvisSpeech } from "@/lib/tts";
+import { RealtimeChat, RealtimeEvent } from "@/utils/RealtimeChat";
 
 interface VoiceConversationProps {
   isOpen: boolean;
@@ -13,29 +11,26 @@ interface VoiceConversationProps {
   onMessage: (userMessage: string, assistantResponse: string) => void;
 }
 
-const languageCodes = {
-  en: "en-US",
-  it: "it-IT",
-};
-
 const statusMessages = {
   en: {
+    connecting: "Connecting...",
     listening: "Listening...",
     thinking: "Thinking...",
     speaking: "Speaking...",
-    tapToSpeak: "Tap to speak",
-    processing: "Processing...",
+    tapToSpeak: "Speak naturally",
+    error: "Connection error",
   },
   it: {
+    connecting: "Connessione...",
     listening: "Ascolto...",
     thinking: "Sto pensando...",
     speaking: "Sto parlando...",
-    tapToSpeak: "Tocca per parlare",
-    processing: "Elaborazione...",
+    tapToSpeak: "Parla naturalmente",
+    error: "Errore di connessione",
   },
 };
 
-type ConversationState = "idle" | "listening" | "processing" | "speaking";
+type ConversationState = "connecting" | "idle" | "listening" | "processing" | "speaking" | "error";
 
 export const VoiceConversation = ({
   isOpen,
@@ -43,196 +38,114 @@ export const VoiceConversation = ({
   language,
   onMessage,
 }: VoiceConversationProps) => {
-  const [state, setState] = useState<ConversationState>("idle");
+  const [state, setState] = useState<ConversationState>("connecting");
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
-  const [interimTranscript, setInterimTranscript] = useState("");
+  const [partialTranscript, setPartialTranscript] = useState("");
   
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const conversationHistoryRef = useRef<ChatMessage[]>([]);
+  const chatRef = useRef<RealtimeChat | null>(null);
+  const currentUserTranscript = useRef<string>("");
+  const currentAssistantResponse = useRef<string>("");
 
   const t = statusMessages[language];
 
-  // Speak text using Fish Audio
-  const speak = useCallback(
-    async (text: string, onEnd?: () => void) => {
-      stopJarvisSpeech();
-      setState("speaking");
-      
-      try {
-        await speakWithJarvis(
-          text,
-          undefined,
-          () => {
-            setState("idle");
-            onEnd?.();
-          }
-        );
-      } catch (error) {
-        console.error("Error speaking:", error);
+  const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+    switch (event.type) {
+      case "session.created":
+        console.log("Session created");
         setState("idle");
-        onEnd?.();
-      }
-    },
-    []
-  );
+        break;
 
-  // Stop everything
-  const stopAll = useCallback(() => {
-    recognitionRef.current?.stop();
-    stopJarvisSpeech();
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
+      case "input_audio_buffer.speech_started":
+        setState("listening");
+        setPartialTranscript("");
+        break;
+
+      case "input_audio_buffer.speech_stopped":
+        setState("processing");
+        break;
+
+      case "conversation.item.input_audio_transcription.completed":
+        const userText = event.transcript || "";
+        currentUserTranscript.current = userText;
+        setTranscript(userText);
+        setPartialTranscript("");
+        break;
+
+      case "response.created":
+        setState("processing");
+        currentAssistantResponse.current = "";
+        break;
+
+      case "response.audio_transcript.delta":
+        currentAssistantResponse.current += event.delta || "";
+        setResponse(currentAssistantResponse.current);
+        setState("speaking");
+        break;
+
+      case "response.audio_transcript.done":
+        setResponse(event.transcript || currentAssistantResponse.current);
+        break;
+
+      case "response.done":
+        // Save the exchange to chat history
+        if (currentUserTranscript.current && currentAssistantResponse.current) {
+          onMessage(currentUserTranscript.current, currentAssistantResponse.current);
+        }
+        setState("idle");
+        break;
+
+      case "error":
+        console.error("Realtime API error:", event);
+        setState("error");
+        break;
+
+      default:
+        // Log other events for debugging
+        if (event.type.startsWith("response.") || event.type.startsWith("conversation.")) {
+          console.log("Event:", event.type);
+        }
     }
-    setState("idle");
-    setInterimTranscript("");
-  }, []);
+  }, [onMessage]);
 
-  // Generate response
-  const generateResponse = useCallback(
-    async (userText: string) => {
-      setState("processing");
-      setTranscript(userText);
-
-      try {
-        const { reply: responseText } = await sendMessageToAI(
-          userText,
-          language,
-          conversationHistoryRef.current
-        );
-
-        // Update conversation history
-        conversationHistoryRef.current.push(
-          { role: "user", content: userText },
-          { role: "assistant", content: responseText }
-        );
-
-        setResponse(responseText);
-        
-        // Save to chat history
-        onMessage(userText, responseText);
-        
-        // Speak the response
-        speak(responseText, () => {
-          // After speaking, go back to idle (user can tap to continue)
-        });
-      } catch (error) {
-        const errorMessage = language === "en"
-          ? "Sorry, I couldn't reach the server. Try again?"
-          : "Scusa, non riesco a raggiungere il server. Riprova?";
-        setResponse(errorMessage);
-        speak(errorMessage);
-      }
-    },
-    [language, onMessage, speak]
-  );
-
-  // Start listening
-  const startListening = useCallback(() => {
-    const SpeechRecognitionAPI =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) {
-      alert(
-        language === "en"
-          ? "Speech recognition not supported"
-          : "Riconoscimento vocale non supportato"
-      );
+  // Initialize connection when opened
+  useEffect(() => {
+    if (!isOpen) {
+      chatRef.current?.disconnect();
+      chatRef.current = null;
+      setState("connecting");
+      setTranscript("");
+      setResponse("");
+      setPartialTranscript("");
+      currentUserTranscript.current = "";
+      currentAssistantResponse.current = "";
       return;
     }
 
-    // Stop any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const recognition = new SpeechRecognitionAPI() as SpeechRecognitionInstance;
-    recognitionRef.current = recognition;
-    
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = languageCodes[language];
-
-    let finalTranscript = "";
-    let lastProcessedIndex = 0;
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      
-      // Only process new results to avoid duplicates
-      for (let i = lastProcessedIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + " ";
-          lastProcessedIndex = i + 1;
-        } else {
-          interim += result[0].transcript;
-        }
-      }
-
-      setInterimTranscript(interim);
-      setTranscript(finalTranscript.trim());
-
-      // Reset silence timeout
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-      }
-
-      // If we have final transcript, wait for silence then process
-      if (finalTranscript.trim()) {
-        silenceTimeoutRef.current = setTimeout(() => {
-          recognition.stop();
-          if (finalTranscript.trim()) {
-            generateResponse(finalTranscript.trim());
-          }
-        }, 1500);
+    const initChat = async () => {
+      try {
+        setState("connecting");
+        chatRef.current = new RealtimeChat(handleRealtimeEvent);
+        await chatRef.current.init(language);
+      } catch (error) {
+        console.error("Failed to initialize:", error);
+        setState("error");
       }
     };
 
-    recognition.onend = () => {
-      if (state === "listening" && !finalTranscript.trim()) {
-        setState("idle");
-      }
+    initChat();
+
+    return () => {
+      chatRef.current?.disconnect();
+      chatRef.current = null;
     };
+  }, [isOpen, language, handleRealtimeEvent]);
 
-    recognition.onerror = () => {
-      setState("idle");
-    };
-
-    setTranscript("");
-    setResponse("");
-    setInterimTranscript("");
-    setState("listening");
-    recognition.start();
-  }, [language, generateResponse, state]);
-
-  // Handle main button tap
-  const handleButtonTap = () => {
-    if (state === "idle") {
-      startListening();
-    } else if (state === "listening") {
-      // Stop listening and process what we have
-      recognitionRef.current?.stop();
-      if (transcript.trim()) {
-        generateResponse(transcript.trim());
-      } else {
-        setState("idle");
-      }
-    } else if (state === "speaking") {
-      // Stop speaking
-      stopJarvisSpeech();
-      setState("idle");
-    }
+  const handleClose = () => {
+    chatRef.current?.disconnect();
+    chatRef.current = null;
+    onClose();
   };
-
-  // Cleanup on close
-  useEffect(() => {
-    if (!isOpen) {
-      stopAll();
-      setTranscript("");
-      setResponse("");
-    }
-  }, [isOpen, stopAll]);
-
 
   if (!isOpen) return null;
 
@@ -240,7 +153,7 @@ export const VoiceConversation = ({
     <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-xl animate-fade-in">
       {/* Close button */}
       <button
-        onClick={onClose}
+        onClick={handleClose}
         className="absolute top-4 right-4 safe-area-top w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-secondary/50 transition-colors z-10"
       >
         <X className="w-6 h-6" />
@@ -273,18 +186,21 @@ export const VoiceConversation = ({
             style={{ transform: "scale(2)", animationDelay: "200ms" }}
           />
 
-          {/* Main button */}
-          <button
-            onClick={handleButtonTap}
+          {/* Main orb */}
+          <div
             className={cn(
               "relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-soft",
-              state === "idle" && "bg-gradient-accent hover:scale-105",
+              state === "connecting" && "bg-secondary animate-pulse",
+              state === "idle" && "bg-gradient-accent",
               state === "listening" && "bg-gradient-accent scale-110 shadow-glow",
               state === "processing" && "bg-secondary animate-pulse",
-              state === "speaking" && "bg-gradient-accent shadow-glow"
+              state === "speaking" && "bg-gradient-accent shadow-glow",
+              state === "error" && "bg-destructive/50"
             )}
           >
-            {state === "listening" ? (
+            {state === "connecting" ? (
+              <Loader2 className="w-12 h-12 text-primary-foreground animate-spin" />
+            ) : state === "listening" ? (
               <div className="flex items-center gap-1">
                 <span className="w-1 h-8 bg-primary-foreground rounded-full animate-[typing-dot_0.8s_ease-in-out_infinite]" />
                 <span className="w-1 h-12 bg-primary-foreground rounded-full animate-[typing-dot_0.8s_ease-in-out_infinite_0.2s]" />
@@ -292,43 +208,62 @@ export const VoiceConversation = ({
                 <span className="w-1 h-10 bg-primary-foreground rounded-full animate-[typing-dot_0.8s_ease-in-out_infinite_0.6s]" />
                 <span className="w-1 h-4 bg-primary-foreground rounded-full animate-[typing-dot_0.8s_ease-in-out_infinite_0.8s]" />
               </div>
+            ) : state === "processing" ? (
+              <Loader2 className="w-12 h-12 text-primary-foreground animate-spin" />
             ) : state === "speaking" ? (
               <Volume2 className="w-12 h-12 text-primary-foreground animate-pulse" />
             ) : (
               <Mic className="w-12 h-12 text-primary-foreground" />
             )}
-          </button>
+          </div>
         </div>
 
         {/* Status text */}
         <p className="text-lg font-medium text-foreground mb-4">
+          {state === "connecting" && t.connecting}
           {state === "idle" && t.tapToSpeak}
           {state === "listening" && t.listening}
           {state === "processing" && t.thinking}
           {state === "speaking" && t.speaking}
+          {state === "error" && t.error}
         </p>
 
         {/* Transcript display */}
         <div className="w-full max-w-md min-h-[120px] flex flex-col items-center justify-center text-center px-4">
-          {(transcript || interimTranscript) && state !== "speaking" && (
-            <div className="animate-fade-in">
+          {transcript && (
+            <div className="animate-fade-in mb-4">
               <p className="text-sm text-muted-foreground mb-1">
                 {language === "en" ? "You said:" : "Hai detto:"}
               </p>
-              <p className="text-lg">
-                {transcript}
-                {interimTranscript && (
-                  <span className="text-muted-foreground/60">{interimTranscript}</span>
-                )}
-              </p>
+              <p className="text-lg">{transcript}</p>
             </div>
           )}
 
-          {response && state === "speaking" && (
+          {response && (
             <div className="animate-fade-in">
               <p className="text-sm text-muted-foreground mb-1">Jarvis:</p>
               <p className="text-lg text-primary">{response}</p>
             </div>
+          )}
+
+          {state === "error" && (
+            <button
+              onClick={() => {
+                setState("connecting");
+                const initChat = async () => {
+                  try {
+                    chatRef.current = new RealtimeChat(handleRealtimeEvent);
+                    await chatRef.current.init(language);
+                  } catch {
+                    setState("error");
+                  }
+                };
+                initChat();
+              }}
+              className="mt-4 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm"
+            >
+              {language === "en" ? "Retry" : "Riprova"}
+            </button>
           )}
         </div>
       </div>
@@ -337,8 +272,8 @@ export const VoiceConversation = ({
       <div className="pb-8 safe-area-bottom text-center">
         <p className="text-xs text-muted-foreground">
           {language === "en"
-            ? "Tap the orb to start or stop"
-            : "Tocca l'orb per iniziare o fermare"}
+            ? "Just speak - Jarvis will respond automatically"
+            : "Parla - Jarvis risponderà automaticamente"}
         </p>
       </div>
     </div>
