@@ -7,6 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Sanitize text to remove null characters and problematic Unicode sequences
+function sanitizeText(text: string): string {
+  return text
+    // Remove null characters (PostgreSQL cannot store these)
+    .replace(/\u0000/g, '')
+    // Remove other control characters except newlines and tabs
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    // Normalize whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Chunk text into smaller pieces for embedding
 function chunkText(text: string, chunkSize = 1000, overlap = 200): string[] {
   const chunks: string[] = [];
@@ -135,8 +147,9 @@ serve(async (req) => {
     // Read file content
     const arrayBuffer = await file.arrayBuffer();
     
-    // Extract text from file
-    const textContent = await extractText(file, arrayBuffer);
+    // Extract text from file and sanitize it
+    const rawText = await extractText(file, arrayBuffer);
+    const textContent = sanitizeText(rawText);
     
     if (!textContent || textContent.length < 10) {
       return new Response(JSON.stringify({ error: 'Could not extract text from file' }), {
