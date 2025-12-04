@@ -103,6 +103,48 @@ export type Database = {
           },
         ]
       }
+      input_files: {
+        Row: {
+          category: string
+          content: string | null
+          created_at: string
+          file_size: number | null
+          filename: string
+          id: string
+          metadata: Json | null
+          mime_type: string
+          storage_path: string | null
+          subcategory: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          file_size?: number | null
+          filename: string
+          id?: string
+          metadata?: Json | null
+          mime_type: string
+          storage_path?: string | null
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          file_size?: number | null
+          filename?: string
+          id?: string
+          metadata?: Json | null
+          mime_type?: string
+          storage_path?: string | null
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -128,6 +170,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      output_files: {
+        Row: {
+          content: string | null
+          conversation_id: string | null
+          created_at: string
+          file_type: string
+          filename: string
+          id: string
+          metadata: Json | null
+          mime_type: string
+          storage_path: string | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          file_type?: string
+          filename: string
+          id?: string
+          metadata?: Json | null
+          mime_type: string
+          storage_path?: string | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          file_type?: string
+          filename?: string
+          id?: string
+          metadata?: Json | null
+          mime_type?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "output_files_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
