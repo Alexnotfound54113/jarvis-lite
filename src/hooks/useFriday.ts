@@ -1,16 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Message } from "@/components/jarvis/ChatMessage";
+import { Message } from "@/components/friday/ChatMessage";
 import { Language } from "@/hooks/useSpeech";
 import { sendMessageToAI, ChatMessage } from "@/lib/openai";
 
 const welcomeMessages = {
-  en: "Good morning! I'm Jarvis, your personal assistant. I have full memory of our conversations and can manage your tasks and appointments directly. How can I help you?",
-  it: "Buongiorno! Sono Jarvis, il tuo assistente personale. Ho piena memoria delle nostre conversazioni e posso gestire le tue attività e appuntamenti direttamente. Come posso aiutarti?",
+  en: "Good morning! I'm FRIDAY, your personal assistant. I have full memory of our conversations and can manage your tasks and appointments directly. How can I help you?",
+  it: "Buongiorno! Sono FRIDAY, la tua assistente personale. Ho piena memoria delle nostre conversazioni e posso gestire le tue attività e appuntamenti direttamente. Come posso aiutarti?",
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-interface UseJarvisProps {
+interface UseFridayProps {
   language: Language;
   conversationId: string | null;
   saveMessage: (role: "user" | "assistant", content: string) => Promise<void>;
@@ -18,13 +18,13 @@ interface UseJarvisProps {
   onToolResult?: (results: any[]) => void;
 }
 
-export const useJarvis = ({
+export const useFriday = ({
   language,
   conversationId,
   saveMessage,
   loadConversationHistory,
   onToolResult,
-}: UseJarvisProps) => {
+}: UseFridayProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",

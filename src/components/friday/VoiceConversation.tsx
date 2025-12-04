@@ -241,7 +241,7 @@ export const VoiceConversation = ({
 
           {response && (
             <div className="animate-fade-in">
-              <p className="text-sm text-muted-foreground mb-1">Jarvis:</p>
+              <p className="text-sm text-muted-foreground mb-1">FRIDAY:</p>
               <p className="text-lg text-primary">{response}</p>
             </div>
           )}
@@ -272,8 +272,8 @@ export const VoiceConversation = ({
       <div className="pb-8 safe-area-bottom text-center">
         <p className="text-xs text-muted-foreground">
           {language === "en"
-            ? "Just speak - Jarvis will respond automatically"
-            : "Parla - Jarvis risponderà automaticamente"}
+            ? "Just speak - FRIDAY will respond automatically"
+            : "Parla - FRIDAY risponderà automaticamente"}
         </p>
       </div>
     </div>

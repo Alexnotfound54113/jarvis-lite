@@ -1,19 +1,19 @@
 import { cn } from "@/lib/utils";
 import { Mic } from "lucide-react";
 
-interface JarvisAvatarProps {
+interface FridayAvatarProps {
   isThinking?: boolean;
   size?: "sm" | "md" | "lg";
   onClick?: () => void;
   interactive?: boolean;
 }
 
-export const JarvisAvatar = ({
+export const FridayAvatar = ({
   isThinking,
   size = "md",
   onClick,
   interactive = false,
-}: JarvisAvatarProps) => {
+}: FridayAvatarProps) => {
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-12 h-12",

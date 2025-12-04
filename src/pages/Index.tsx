@@ -1,13 +1,13 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Header } from "@/components/jarvis/Header";
-import { ChatMessage, Message } from "@/components/jarvis/ChatMessage";
-import { ChatInput } from "@/components/jarvis/ChatInput";
-import { TypingIndicator } from "@/components/jarvis/TypingIndicator";
-import { AppointmentWidget } from "@/components/jarvis/AppointmentWidget";
-import { TaskList } from "@/components/jarvis/TaskList";
-import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
-import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
-import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
+import { Header } from "@/components/friday/Header";
+import { ChatMessage, Message } from "@/components/friday/ChatMessage";
+import { ChatInput } from "@/components/friday/ChatInput";
+import { TypingIndicator } from "@/components/friday/TypingIndicator";
+import { AppointmentWidget } from "@/components/friday/AppointmentWidget";
+import { TaskList } from "@/components/friday/TaskList";
+import { FridayAvatar } from "@/components/friday/FridayAvatar";
+import { SettingsSheet } from "@/components/friday/SettingsSheet";
+import { VoiceConversation } from "@/components/friday/VoiceConversation";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useDatabase } from "@/hooks/useDatabase";
@@ -16,8 +16,8 @@ import { ChevronDown, ChevronUp, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const welcomeMessages = {
-  en: "Good morning! I'm Jarvis, your personal assistant. How can I help you?",
-  it: "Buongiorno! Sono Jarvis, il tuo assistente personale. Come posso aiutarti?",
+  en: "Good morning! I'm FRIDAY, your personal assistant. How can I help you?",
+  it: "Buongiorno! Sono FRIDAY, la tua assistente personale. Come posso aiutarti?",
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -94,7 +94,7 @@ const Index = () => {
               className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full transition-transform hover:scale-105 active:scale-95"
               aria-label={language === "en" ? "Start voice conversation" : "Inizia conversazione vocale"}
             >
-              <JarvisAvatar size="lg" isThinking={isLoading || isSpeaking} />
+              <FridayAvatar size="lg" isThinking={isLoading || isSpeaking} />
             </button>
             <p className="text-sm text-muted-foreground mt-4">{language === "en" ? "Tap to speak" : "Tocca per parlare"}</p>
           </div>
@@ -108,7 +108,7 @@ const Index = () => {
 
       <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <div className="flex gap-2">
-          <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask Jarvis anything..." : "Chiedi qualcosa a Jarvis..."} language={language} />
+          <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask FRIDAY anything..." : "Chiedi qualcosa a FRIDAY..."} language={language} />
           <button
             onClick={() => setVoiceOpen(true)}
             className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shadow-soft"

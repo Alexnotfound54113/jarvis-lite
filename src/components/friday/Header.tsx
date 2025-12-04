@@ -29,7 +29,7 @@ export const Header = ({ onMenuClick, onSettingsClick, isSpeaking }: HeaderProps
               isSpeaking ? "bg-primary animate-pulse-soft" : "bg-primary/50"
             )}
           />
-          <h1 className="text-lg font-semibold tracking-tight">Jarvis</h1>
+          <h1 className="text-lg font-semibold tracking-tight">FRIDAY</h1>
           <span className="text-xs text-muted-foreground uppercase">
             {language === "en" ? "EN" : "IT"}
           </span>

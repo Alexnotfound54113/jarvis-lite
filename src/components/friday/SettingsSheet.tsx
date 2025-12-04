@@ -34,7 +34,7 @@ export const SettingsSheet = ({ open, onOpenChange }: SettingsSheetProps) => {
 
             <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/50">
               <Label htmlFor="tts-toggle" className="text-sm cursor-pointer">
-                Jarvis speaks responses
+                FRIDAY speaks responses
               </Label>
               <Switch
                 id="tts-toggle"
@@ -81,8 +81,8 @@ export const SettingsSheet = ({ open, onOpenChange }: SettingsSheetProps) => {
 
             <p className="text-xs text-muted-foreground">
               {language === "en"
-                ? "Jarvis will respond and speak in English"
-                : "Jarvis risponderà e parlerà in italiano"}
+                ? "FRIDAY will respond and speak in English"
+                : "FRIDAY risponderà e parlerà in italiano"}
             </p>
           </div>
         </div>
