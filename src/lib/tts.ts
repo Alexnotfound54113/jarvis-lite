@@ -78,14 +78,14 @@ async function processAudioQueue(onEnd?: () => void): Promise<void> {
   onEnd?.();
 }
 
-export async function speakWithJarvis(
+export async function speakWithFriday(
   text: string,
   onStart?: () => void,
   onEnd?: () => void
 ): Promise<void> {
   try {
     // Stop any currently playing audio
-    stopJarvisSpeech();
+    stopFridaySpeech();
 
     onStart?.();
 
@@ -128,13 +128,13 @@ export async function speakWithJarvis(
       onEnd?.();
     }
   } catch (error) {
-    console.error("Error in speakWithJarvis:", error);
+    console.error("Error in speakWithFriday:", error);
     onEnd?.();
     throw error;
   }
 }
 
-export function stopJarvisSpeech(): void {
+export function stopFridaySpeech(): void {
   // Clear the queue
   audioQueue = [];
   isPlaying = false;
@@ -149,6 +149,6 @@ export function stopJarvisSpeech(): void {
   }
 }
 
-export function isJarvisSpeaking(): boolean {
+export function isFridaySpeaking(): boolean {
   return currentSource !== null || isPlaying;
 }

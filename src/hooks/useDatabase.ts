@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Task } from "@/components/jarvis/TaskList";
-import { Appointment } from "@/components/jarvis/AppointmentWidget";
+import { Task } from "@/components/friday/TaskList";
+import { Appointment } from "@/components/friday/AppointmentWidget";
 
 export interface GeneratedFile {
   id: string;

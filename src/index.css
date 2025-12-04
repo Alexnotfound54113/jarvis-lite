@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Jarvis Design System - Cool Monochrome + Subtle Frost */
+/* FRIDAY Design System - Cool Monochrome + Subtle Frost */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -40,11 +40,11 @@
 
     --radius: 1rem;
 
-    /* Jarvis Custom Tokens */
-    --jarvis-glass: 220 20% 100%;
-    --jarvis-glass-border: 220 20% 94%;
-    --jarvis-blue-glow: 220 80% 60%;
-    --jarvis-soft-shadow: 220 30% 85%;
+    /* FRIDAY Custom Tokens */
+    --friday-glass: 220 20% 100%;
+    --friday-glass-border: 220 20% 94%;
+    --friday-blue-glow: 220 80% 60%;
+    --friday-soft-shadow: 220 30% 85%;
     
     /* Gradients */
     --gradient-subtle: linear-gradient(135deg, hsl(220 20% 98%) 0%, hsl(220 25% 95%) 100%);
@@ -91,10 +91,10 @@
     --input: 220 20% 18%;
     --ring: 220 80% 60%;
 
-    --jarvis-glass: 220 25% 14%;
-    --jarvis-glass-border: 220 20% 22%;
-    --jarvis-blue-glow: 220 80% 65%;
-    --jarvis-soft-shadow: 220 30% 5%;
+    --friday-glass: 220 25% 14%;
+    --friday-glass-border: 220 20% 22%;
+    --friday-blue-glow: 220 80% 65%;
+    --friday-soft-shadow: 220 30% 5%;
 
     --sidebar-background: 220 25% 10%;
     --sidebar-foreground: 220 15% 90%;
@@ -126,21 +126,21 @@
 @layer components {
   /* Glass effect utilities */
   .glass {
-    @apply bg-[hsl(var(--jarvis-glass)/.85)] backdrop-blur-md border border-[hsl(var(--jarvis-glass-border))];
+    @apply bg-[hsl(var(--friday-glass)/.85)] backdrop-blur-md border border-[hsl(var(--friday-glass-border))];
   }
 
   .glass-subtle {
-    @apply bg-[hsl(var(--jarvis-glass)/.6)] backdrop-blur-sm border border-[hsl(var(--jarvis-glass-border)/.5)];
+    @apply bg-[hsl(var(--friday-glass)/.6)] backdrop-blur-sm border border-[hsl(var(--friday-glass-border)/.5)];
   }
 
   /* Soft shadow */
   .shadow-soft {
-    box-shadow: 0 4px 24px -4px hsl(var(--jarvis-soft-shadow) / 0.3),
-                0 2px 8px -2px hsl(var(--jarvis-soft-shadow) / 0.15);
+    box-shadow: 0 4px 24px -4px hsl(var(--friday-soft-shadow) / 0.3),
+                0 2px 8px -2px hsl(var(--friday-soft-shadow) / 0.15);
   }
 
   .shadow-glow {
-    box-shadow: 0 0 20px -5px hsl(var(--jarvis-blue-glow) / 0.3);
+    box-shadow: 0 0 20px -5px hsl(var(--friday-blue-glow) / 0.3);
   }
 
   /* Gradient backgrounds */

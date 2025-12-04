@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { speakWithJarvis, stopJarvisSpeech } from "@/lib/tts";
+import { speakWithFriday, stopFridaySpeech } from "@/lib/tts";
 
 export type Language = "en" | "it";
 
@@ -16,13 +16,13 @@ export const useSpeech = ({ language, enabled }: UseSpeechOptions) => {
       if (!enabled || !text) return;
 
       try {
-        await speakWithJarvis(
+        await speakWithFriday(
           text,
           () => setIsSpeaking(true),
           () => setIsSpeaking(false)
         );
       } catch (error) {
-        console.error("Error speaking with Jarvis:", error);
+        console.error("Error speaking with FRIDAY:", error);
         setIsSpeaking(false);
       }
     },
@@ -30,7 +30,7 @@ export const useSpeech = ({ language, enabled }: UseSpeechOptions) => {
   );
 
   const stop = useCallback(() => {
-    stopJarvisSpeech();
+    stopFridaySpeech();
     setIsSpeaking(false);
   }, []);
 

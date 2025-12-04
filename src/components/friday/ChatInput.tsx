@@ -19,7 +19,7 @@ const languageCodes = {
 export const ChatInput = ({
   onSend,
   isLoading,
-  placeholder = "Ask Jarvis anything...",
+  placeholder = "Ask FRIDAY anything...",
   language = "en",
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
