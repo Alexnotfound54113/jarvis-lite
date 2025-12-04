@@ -96,7 +96,7 @@ export const VoiceConversation = ({
       setTranscript(userText);
 
       try {
-        const responseText = await sendMessageToAI(
+        const { reply: responseText } = await sendMessageToAI(
           userText,
           language,
           conversationHistoryRef.current

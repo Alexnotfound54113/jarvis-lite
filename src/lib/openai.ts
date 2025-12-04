@@ -1,22 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
+}
+
+export interface ToolResult {
+  type: "task" | "appointment" | "file";
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  toolResults?: ToolResult[];
 }
 
 export async function sendMessageToAI(
   message: string,
   language: "en" | "it",
-  conversationHistory: ChatMessage[] = []
-): Promise<string> {
+  conversationHistory: ChatMessage[] = [],
+  conversationId?: string | null
+): Promise<ChatResponse> {
   const messages = [
     ...conversationHistory,
     { role: "user" as const, content: message },
   ];
 
   const { data, error } = await supabase.functions.invoke("chat", {
-    body: { messages, language },
+    body: { messages, language, conversationId },
   });
 
   if (error) {
@@ -29,5 +42,8 @@ export async function sendMessageToAI(
     throw new Error(data.error);
   }
 
-  return data?.reply || "Sorry, I couldn't generate a response.";
+  return {
+    reply: data?.reply || "Sorry, I couldn't generate a response.",
+    toolResults: data?.toolResults,
+  };
 }
