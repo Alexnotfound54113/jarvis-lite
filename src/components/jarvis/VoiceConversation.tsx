@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
 import type { SpeechRecognitionInstance } from "@/types/speech";
 import { sendMessageToAI, ChatMessage } from "@/lib/openai";
-import { speakWithJarvis, stopJarvisSpeech } from "@/lib/fish-audio";
+import { speakWithJarvis, stopJarvisSpeech } from "@/lib/tts";
 
 interface VoiceConversationProps {
   isOpen: boolean;

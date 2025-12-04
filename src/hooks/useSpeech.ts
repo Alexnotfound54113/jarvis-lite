@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { speakWithJarvis, stopJarvisSpeech } from "@/lib/fish-audio";
+import { speakWithJarvis, stopJarvisSpeech } from "@/lib/tts";
 
 export type Language = "en" | "it";
 
