@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
 import type { SpeechRecognitionInstance } from "@/types/speech";
 import { sendMessageToAI, ChatMessage } from "@/lib/openai";
+import { speakWithJarvis, stopJarvisSpeech } from "@/lib/fish-audio";
 
 interface VoiceConversationProps {
   isOpen: boolean;
@@ -48,53 +49,39 @@ export const VoiceConversation = ({
   const [interimTranscript, setInterimTranscript] = useState("");
   
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const conversationHistoryRef = useRef<ChatMessage[]>([]);
 
   const t = statusMessages[language];
 
-  // Get best voice for language
-  const getVoice = useCallback(() => {
-    const voices = window.speechSynthesis.getVoices();
-    const langCode = language === "en" ? "en" : "it";
-    return voices.find((v) => v.lang.startsWith(langCode)) || voices[0];
-  }, [language]);
-
-  // Speak text
+  // Speak text using Fish Audio
   const speak = useCallback(
-    (text: string, onEnd?: () => void) => {
-      window.speechSynthesis.cancel();
+    async (text: string, onEnd?: () => void) => {
+      stopJarvisSpeech();
+      setState("speaking");
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      synthRef.current = utterance;
-      
-      const voice = getVoice();
-      if (voice) utterance.voice = voice;
-      
-      utterance.lang = languageCodes[language];
-      utterance.rate = 1;
-      utterance.pitch = 1;
-
-      utterance.onend = () => {
+      try {
+        await speakWithJarvis(
+          text,
+          undefined,
+          () => {
+            setState("idle");
+            onEnd?.();
+          }
+        );
+      } catch (error) {
+        console.error("Error speaking:", error);
         setState("idle");
         onEnd?.();
-      };
-
-      utterance.onerror = () => {
-        setState("idle");
-      };
-
-      setState("speaking");
-      window.speechSynthesis.speak(utterance);
+      }
     },
-    [language, getVoice]
+    []
   );
 
   // Stop everything
   const stopAll = useCallback(() => {
     recognitionRef.current?.stop();
-    window.speechSynthesis.cancel();
+    stopJarvisSpeech();
     if (silenceTimeoutRef.current) {
       clearTimeout(silenceTimeoutRef.current);
     }
@@ -229,7 +216,7 @@ export const VoiceConversation = ({
       }
     } else if (state === "speaking") {
       // Stop speaking
-      window.speechSynthesis.cancel();
+      stopJarvisSpeech();
       setState("idle");
     }
   };
@@ -243,10 +230,6 @@ export const VoiceConversation = ({
     }
   }, [isOpen, stopAll]);
 
-  // Load voices
-  useEffect(() => {
-    window.speechSynthesis.getVoices();
-  }, []);
 
   if (!isOpen) return null;
 
