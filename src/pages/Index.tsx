@@ -8,7 +8,6 @@ import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
 import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
-import { Sidebar } from "@/components/jarvis/Sidebar";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useDatabase } from "@/hooks/useDatabase";
@@ -25,7 +24,7 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
-  const { tasks = [], appointments = [], generatedFiles = [], addTask, toggleTask, deleteTask, addAppointment, deleteAppointment, deleteGeneratedFile } = useDatabase();
+  const { tasks = [], appointments = [], addTask, toggleTask, deleteTask, addAppointment, deleteAppointment } = useDatabase();
 
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", content: welcomeMessages[language], role: "assistant", timestamp: new Date() },
@@ -40,7 +39,6 @@ const Index = () => {
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleVoiceMessage = useCallback((userMessage: string, assistantResponse: string) => {
     setMessages((prev) => [
@@ -72,7 +70,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-subtle">
-      <Header onMenuClick={() => setSidebarOpen(true)} onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
+      <Header onMenuClick={() => setSettingsOpen(true)} onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
 
       <div className="px-4 pt-3">
         <button onClick={() => setShowWidgets(!showWidgets)} className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground py-2 hover:text-foreground transition-colors">
