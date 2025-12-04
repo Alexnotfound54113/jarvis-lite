@@ -299,18 +299,32 @@ export const useDatabase = () => {
 
   // Initial load
   useEffect(() => {
+    let mounted = true;
+    
     const init = async () => {
-      setIsLoading(true);
-      await Promise.all([
-        loadTasks(),
-        loadAppointments(),
-        loadGeneratedFiles(),
-        getOrCreateConversation(),
-      ]);
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
+        await Promise.all([
+          loadTasks(),
+          loadAppointments(),
+          loadGeneratedFiles(),
+          getOrCreateConversation(),
+        ]);
+      } catch (error) {
+        console.error("Error initializing database:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
     };
+    
     init();
-  }, [loadTasks, loadAppointments, loadGeneratedFiles, getOrCreateConversation]);
+    
+    return () => {
+      mounted = false;
+    };
+  }, []); // Run only once on mount
 
   // Subscribe to realtime updates
   useEffect(() => {

@@ -1,85 +1,42 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/jarvis/Header";
-import { ChatMessage } from "@/components/jarvis/ChatMessage";
+import { ChatMessage, Message } from "@/components/jarvis/ChatMessage";
 import { ChatInput } from "@/components/jarvis/ChatInput";
 import { TypingIndicator } from "@/components/jarvis/TypingIndicator";
-import { AppointmentWidget } from "@/components/jarvis/AppointmentWidget";
-import { TaskList } from "@/components/jarvis/TaskList";
+import { AppointmentWidget, Appointment } from "@/components/jarvis/AppointmentWidget";
+import { TaskList, Task } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
 import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
-import { GeneratedFilesWidget } from "@/components/jarvis/GeneratedFilesWidget";
-import { useJarvis } from "@/hooks/useJarvis";
-import { useDatabase } from "@/hooks/useDatabase";
-import { useSpeech } from "@/hooks/useSpeech";
+import { useSpeech, Language } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
+import { sendMessageToAI, ChatMessage as AIChatMessage } from "@/lib/openai";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+
+const welcomeMessages = {
+  en: "Good morning! I'm Jarvis, your personal assistant. How can I help you?",
+  it: "Buongiorno! Sono Jarvis, il tuo assistente personale. Come posso aiutarti?",
+};
+
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
-  const {
-    conversationId,
-    tasks,
-    appointments,
-    generatedFiles,
-    isLoading: dbLoading,
-    addTask,
-    toggleTask,
-    deleteTask,
-    addAppointment,
-    deleteAppointment,
-    deleteGeneratedFile,
-    saveMessage,
-    loadConversationHistory,
-    refreshTasks,
-    refreshAppointments,
-    refreshFiles,
-  } = useDatabase();
-
-  const handleToolResult = useCallback(
-    (results: any[]) => {
-      for (const result of results) {
-        if (result.success) {
-          if (result.type === "task") {
-            toast.success(
-              language === "en" ? "Task added" : "Attività aggiunta"
-            );
-            refreshTasks();
-          } else if (result.type === "appointment") {
-            toast.success(
-              language === "en"
-                ? "Appointment scheduled"
-                : "Appuntamento programmato"
-            );
-            refreshAppointments();
-          } else if (result.type === "file") {
-            toast.success(
-              language === "en" ? "File generated" : "File generato"
-            );
-            refreshFiles();
-          }
-        }
-      }
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      content: welcomeMessages[language],
+      role: "assistant",
+      timestamp: new Date(),
     },
-    [language, refreshTasks, refreshAppointments, refreshFiles]
-  );
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastAssistantMessage, setLastAssistantMessage] = useState<string | null>(null);
+  const conversationHistoryRef = useRef<AIChatMessage[]>([]);
 
-  const {
-    messages,
-    isLoading,
-    sendMessage,
-    lastAssistantMessage,
-    updateWelcomeMessage,
-    addVoiceExchange,
-  } = useJarvis({
-    language,
-    conversationId,
-    saveMessage,
-    loadConversationHistory,
-    onToolResult: handleToolResult,
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const { speak, stop, isSpeaking } = useSpeech({
     language,
@@ -91,181 +48,121 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Speak assistant messages (only for text chat, not voice)
   useEffect(() => {
     if (lastAssistantMessage && ttsEnabled && !voiceConversationOpen) {
       speak(lastAssistantMessage);
     }
   }, [lastAssistantMessage, ttsEnabled, speak, voiceConversationOpen]);
 
-  // Update welcome message when language changes
   useEffect(() => {
-    updateWelcomeMessage(language);
-  }, [language, updateWelcomeMessage]);
+    setMessages((prev) => {
+      if (prev.length >= 1 && prev[0].id === "welcome") {
+        return [{ ...prev[0], content: welcomeMessages[language] }, ...prev.slice(1)];
+      }
+      return prev;
+    });
+  }, [language]);
 
-  // Stop speech when TTS is disabled
   useEffect(() => {
-    if (!ttsEnabled) {
-      stop();
-    }
+    if (!ttsEnabled) stop();
   }, [ttsEnabled, stop]);
 
-  const handleSend = (message: string) => {
-    stop(); // Stop any ongoing speech
-    sendMessage(message, language);
+  const handleSend = useCallback(async (content: string) => {
+    stop();
+    const userMessage: Message = {
+      id: generateId(),
+      content,
+      role: "user",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+    setLastAssistantMessage(null);
+
+    try {
+      const { reply } = await sendMessageToAI(content, language, conversationHistoryRef.current);
+      conversationHistoryRef.current.push(
+        { role: "user", content },
+        { role: "assistant", content: reply }
+      );
+      const assistantMessage: Message = {
+        id: generateId(),
+        content: reply,
+        role: "assistant",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+      setLastAssistantMessage(reply);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Error";
+      setMessages((prev) => [...prev, { id: generateId(), content: errorMsg, role: "assistant", timestamp: new Date() }]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [language, stop]);
+
+  const handleVoiceMessage = (userMessage: string, assistantResponse: string) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: generateId(), content: userMessage, role: "user", timestamp: new Date() },
+      { id: generateId(), content: assistantResponse, role: "assistant", timestamp: new Date() },
+    ]);
   };
 
-  const handleVoiceMessage = (
-    userMessage: string,
-    assistantResponse: string
-  ) => {
-    addVoiceExchange(userMessage, assistantResponse);
-  };
-
-  if (dbLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <JarvisAvatar size="lg" isThinking />
-      </div>
-    );
-  }
+  const toggleTask = (id: string) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
+  const addTask = (task: Omit<Task, "id">) => setTasks((prev) => [{ ...task, id: generateId() }, ...prev]);
+  const deleteTask = (id: string) => setTasks((prev) => prev.filter((t) => t.id !== id));
+  const addAppointment = (apt: Omit<Appointment, "id">) => setAppointments((prev) => [...prev, { ...apt, id: generateId() }].sort((a, b) => a.date.getTime() - b.date.getTime()));
+  const deleteAppointment = (id: string) => setAppointments((prev) => prev.filter((a) => a.id !== id));
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-subtle">
-      <Header
-        onSettingsClick={() => setSettingsOpen(true)}
-        isSpeaking={isSpeaking}
-      />
+      <Header onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
 
-      {/* Collapsible Widgets Section */}
       <div className="px-4 pt-3">
-        <button
-          onClick={() => setShowWidgets(!showWidgets)}
-          className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground py-2 hover:text-foreground transition-colors"
-        >
-          {showWidgets ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              {language === "en" ? "Hide widgets" : "Nascondi widget"}
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              {language === "en" ? "Show widgets" : "Mostra widget"}
-            </>
-          )}
+        <button onClick={() => setShowWidgets(!showWidgets)} className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground py-2 hover:text-foreground transition-colors">
+          {showWidgets ? <><ChevronUp className="w-4 h-4" />{language === "en" ? "Hide widgets" : "Nascondi widget"}</> : <><ChevronDown className="w-4 h-4" />{language === "en" ? "Show widgets" : "Mostra widget"}</>}
         </button>
-
-        <div
-          className={cn(
-            "grid gap-4 overflow-hidden transition-all duration-300",
-            showWidgets
-              ? "grid-rows-[1fr] opacity-100 mb-4"
-              : "grid-rows-[0fr] opacity-0"
-          )}
-        >
+        <div className={cn("grid gap-4 overflow-hidden transition-all duration-300", showWidgets ? "grid-rows-[1fr] opacity-100 mb-4" : "grid-rows-[0fr] opacity-0")}>
           <div className="overflow-hidden">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <AppointmentWidget
-                appointments={appointments}
-                onAdd={addAppointment}
-                onDelete={deleteAppointment}
-                language={language}
-              />
-              <TaskList
-                tasks={tasks}
-                onToggle={toggleTask}
-                onAdd={addTask}
-                onDelete={deleteTask}
-                language={language}
-              />
-              <GeneratedFilesWidget
-                files={generatedFiles}
-                onDelete={deleteGeneratedFile}
-                language={language}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AppointmentWidget appointments={appointments} onAdd={addAppointment} onDelete={deleteAppointment} language={language} />
+              <TaskList tasks={tasks} onToggle={toggleTask} onAdd={addTask} onDelete={deleteTask} language={language} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 scroll-smooth scrollbar-hide">
-        {/* Welcome avatar - now interactive */}
         {messages.length === 1 && (
           <div className="flex flex-col items-center py-8 animate-fade-in">
-            <JarvisAvatar
-              size="lg"
-              isThinking={isLoading || isSpeaking}
-              interactive
-              onClick={() => setVoiceConversationOpen(true)}
-            />
-            <p className="text-sm text-muted-foreground mt-4">
-              {language === "en"
-                ? "Tap to start voice conversation"
-                : "Tocca per iniziare una conversazione vocale"}
-            </p>
+            <JarvisAvatar size="lg" isThinking={isLoading || isSpeaking} interactive onClick={() => setVoiceConversationOpen(true)} />
+            <p className="text-sm text-muted-foreground mt-4">{language === "en" ? "Tap to start voice conversation" : "Tocca per iniziare una conversazione vocale"}</p>
           </div>
         )}
-
-        {/* Messages */}
         <div className="space-y-4">
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              isLatest={index === messages.length - 1}
-            />
-          ))}
-
+          {messages.map((message, index) => <ChatMessage key={message.id} message={message} isLatest={index === messages.length - 1} />)}
           {isLoading && <TypingIndicator />}
-
           <div ref={chatEndRef} />
         </div>
       </div>
 
-      {/* Floating voice button when there are messages */}
       {messages.length > 1 && (
-        <button
-          onClick={() => setVoiceConversationOpen(true)}
-          className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-gradient-accent shadow-glow flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40 animate-scale-in"
-          aria-label={
-            language === "en" ? "Voice conversation" : "Conversazione vocale"
-          }
-        >
+        <button onClick={() => setVoiceConversationOpen(true)} className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-gradient-accent shadow-glow flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40">
           <JarvisAvatar size="md" interactive />
         </button>
       )}
 
-      {/* Input Area */}
       <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
-        <ChatInput
-          onSend={handleSend}
-          isLoading={isLoading}
-          placeholder={
-            language === "en"
-              ? "Ask Jarvis anything..."
-              : "Chiedi qualcosa a Jarvis..."
-          }
-          language={language}
-        />
+        <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask Jarvis anything..." : "Chiedi qualcosa a Jarvis..."} language={language} />
       </div>
 
-      {/* Settings */}
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
-
-      {/* Voice Conversation Mode */}
-      <VoiceConversation
-        isOpen={voiceConversationOpen}
-        onClose={() => setVoiceConversationOpen(false)}
-        language={language}
-        onMessage={handleVoiceMessage}
-      />
+      <VoiceConversation isOpen={voiceConversationOpen} onClose={() => setVoiceConversationOpen(false)} language={language} onMessage={handleVoiceMessage} />
     </div>
   );
 };
