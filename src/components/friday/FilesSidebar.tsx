@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, DragEvent } from "react";
 import { 
   FileText, 
   FileUp, 
@@ -57,6 +57,8 @@ export function FilesSidebar({ isOpen, onClose, language }: FilesSidebarProps) {
   const [outputFiles, setOutputFiles] = useState<OutputFile[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
+  const [globalDragActive, setGlobalDragActive] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const { toast } = useToast();
 
@@ -133,7 +135,6 @@ export function FilesSidebar({ isOpen, onClose, language }: FilesSidebarProps) {
 
   const handleDeleteInput = async (fileId: string) => {
     try {
-      // Delete chunks first (cascade should handle this but being explicit)
       await supabase.from('file_chunks').delete().eq('file_id', fileId);
       await supabase.from('input_files').delete().eq('id', fileId);
       
@@ -167,6 +168,55 @@ export function FilesSidebar({ isOpen, onClose, language }: FilesSidebarProps) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // Drag and drop handlers
+  const handleDragEnter = (e: DragEvent, categoryId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (categoryId) {
+      setDragOverCategory(categoryId);
+      if (!expandedCategories.includes(categoryId)) {
+        setExpandedCategories(prev => [...prev, categoryId]);
+      }
+    }
+    setGlobalDragActive(true);
+  };
+
+  const handleDragLeave = (e: DragEvent, categoryId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (categoryId && dragOverCategory === categoryId) {
+      setDragOverCategory(null);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: DragEvent, categoryId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCategory(null);
+    setGlobalDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Upload each file
+    for (const file of files) {
+      await handleFileUpload(categoryId, file);
+    }
+  };
+
+  const handleGlobalDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    if (e.currentTarget === e.target) {
+      setGlobalDragActive(false);
+      setDragOverCategory(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -175,7 +225,12 @@ export function FilesSidebar({ isOpen, onClose, language }: FilesSidebarProps) {
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
       
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-80 bg-background border-r border-border shadow-lg flex flex-col animate-slide-in-left">
+      <div 
+        className="fixed inset-y-0 left-0 z-50 w-80 bg-background border-r border-border shadow-lg flex flex-col animate-slide-in-left"
+        onDragEnter={(e) => handleDragEnter(e)}
+        onDragLeave={handleGlobalDragLeave}
+        onDragOver={handleDragOver}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold text-foreground">
@@ -227,35 +282,64 @@ export function FilesSidebar({ isOpen, onClose, language }: FilesSidebarProps) {
             <div>
               <p className="text-xs text-muted-foreground mb-4">
                 {language === "en" 
-                  ? "Upload company files for FRIDAY to use with RAG for generating contracts, emails, and accounting documents."
-                  : "Carica i file aziendali per FRIDAY da usare con RAG per generare contratti, email e documenti contabili."}
+                  ? "Drag & drop files onto folders or click to upload. FRIDAY uses these for RAG."
+                  : "Trascina i file sulle cartelle o clicca per caricare. FRIDAY li usa per RAG."}
               </p>
+
+              {/* Global drop zone indicator */}
+              {globalDragActive && !dragOverCategory && (
+                <div className="mb-4 p-4 border-2 border-dashed border-primary/50 rounded-lg bg-primary/5 text-center">
+                  <Upload className="w-6 h-6 mx-auto mb-2 text-primary" />
+                  <p className="text-xs text-primary">
+                    {language === "en" ? "Drop on a folder below" : "Rilascia su una cartella"}
+                  </p>
+                </div>
+              )}
               
               {FILE_CATEGORIES.map(({ id, label, Icon }) => {
                 const isExpanded = expandedCategories.includes(id);
                 const categoryFiles = getFilesByCategory(id);
                 const isUploading = uploading === id;
+                const isDragOver = dragOverCategory === id;
 
                 return (
-                  <div key={id} className="mb-1">
+                  <div 
+                    key={id} 
+                    className="mb-1"
+                    onDragEnter={(e) => handleDragEnter(e, id)}
+                    onDragLeave={(e) => handleDragLeave(e, id)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, id)}
+                  >
                     <button
                       onClick={() => toggleCategory(id)}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-accent transition-colors"
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all",
+                        isDragOver 
+                          ? "bg-primary/10 border-2 border-dashed border-primary ring-2 ring-primary/20" 
+                          : "hover:bg-accent border-2 border-transparent"
+                      )}
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       ) : (
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       )}
-                      {isExpanded ? (
-                        <FolderOpen className="w-4 h-4 text-primary" />
+                      {isExpanded || isDragOver ? (
+                        <FolderOpen className={cn("w-4 h-4", isDragOver ? "text-primary" : "text-primary")} />
                       ) : (
                         <Folder className="w-4 h-4 text-muted-foreground" />
                       )}
-                      <span className="flex-1 text-left text-sm font-medium">
+                      <span className={cn("flex-1 text-left text-sm font-medium", isDragOver && "text-primary")}>
                         {label[language]}
                       </span>
-                      <span className="text-xs text-muted-foreground">{categoryFiles.length}</span>
+                      {isDragOver ? (
+                        <span className="text-xs text-primary font-medium">
+                          {language === "en" ? "Drop here" : "Rilascia qui"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{categoryFiles.length}</span>
+                      )}
                     </button>
 
                     {isExpanded && (
