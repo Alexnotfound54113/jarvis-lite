@@ -3,13 +3,15 @@ import { Header } from "@/components/jarvis/Header";
 import { ChatMessage, Message } from "@/components/jarvis/ChatMessage";
 import { ChatInput } from "@/components/jarvis/ChatInput";
 import { TypingIndicator } from "@/components/jarvis/TypingIndicator";
-import { AppointmentWidget, Appointment } from "@/components/jarvis/AppointmentWidget";
-import { TaskList, Task } from "@/components/jarvis/TaskList";
+import { AppointmentWidget } from "@/components/jarvis/AppointmentWidget";
+import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
 import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
-import { useSpeech, Language } from "@/hooks/useSpeech";
+import { Sidebar } from "@/components/jarvis/Sidebar";
+import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
+import { useDatabase } from "@/hooks/useDatabase";
 import { sendMessageToAI, ChatMessage as AIChatMessage } from "@/lib/openai";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +25,18 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
+  const {
+    tasks,
+    appointments,
+    generatedFiles,
+    addTask,
+    toggleTask,
+    deleteTask,
+    addAppointment,
+    deleteAppointment,
+    deleteGeneratedFile,
+  } = useDatabase();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -35,9 +49,6 @@ const Index = () => {
   const [lastAssistantMessage, setLastAssistantMessage] = useState<string | null>(null);
   const conversationHistoryRef = useRef<AIChatMessage[]>([]);
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-
   const { speak, stop, isSpeaking } = useSpeech({
     language,
     enabled: ttsEnabled,
@@ -47,6 +58,7 @@ const Index = () => {
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -113,15 +125,21 @@ const Index = () => {
     ]);
   };
 
-  const toggleTask = (id: string) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
-  const addTask = (task: Omit<Task, "id">) => setTasks((prev) => [{ ...task, id: generateId() }, ...prev]);
-  const deleteTask = (id: string) => setTasks((prev) => prev.filter((t) => t.id !== id));
-  const addAppointment = (apt: Omit<Appointment, "id">) => setAppointments((prev) => [...prev, { ...apt, id: generateId() }].sort((a, b) => a.date.getTime() - b.date.getTime()));
-  const deleteAppointment = (id: string) => setAppointments((prev) => prev.filter((a) => a.id !== id));
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-subtle">
-      <Header onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
+      <Header 
+        onMenuClick={() => setSidebarOpen(true)} 
+        onSettingsClick={() => setSettingsOpen(true)} 
+        isSpeaking={isSpeaking} 
+      />
+
+      <Sidebar
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        generatedFiles={generatedFiles}
+        onDeleteFile={deleteGeneratedFile}
+        language={language}
+      />
 
       <div className="px-4 pt-3">
         <button onClick={() => setShowWidgets(!showWidgets)} className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground py-2 hover:text-foreground transition-colors">
