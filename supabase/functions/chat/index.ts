@@ -260,7 +260,40 @@ STILE DI RISPOSTA:
       }
     }
 
-    const reply = message?.content || '';
+    // Generate reply - if tools were called but no content, create a response
+    let reply = message?.content || '';
+    
+    if (!reply && toolResults.length > 0) {
+      // Generate a contextual response based on what was done
+      const successfulTools = toolResults.filter(r => r.success);
+      const failedTools = toolResults.filter(r => !r.success);
+      
+      const responses: string[] = [];
+      
+      for (const result of successfulTools) {
+        if (result.type === 'task') {
+          responses.push(language === 'it' 
+            ? `Ho aggiunto l'attività "${result.data.title}" alla tua lista.`
+            : `I've added "${result.data.title}" to your task list.`);
+        } else if (result.type === 'appointment') {
+          responses.push(language === 'it'
+            ? `Ho programmato "${result.data.title}" per te.`
+            : `I've scheduled "${result.data.title}" for you.`);
+        } else if (result.type === 'file') {
+          responses.push(language === 'it'
+            ? `Ho generato il file "${result.data.filename}". Puoi visualizzarlo o scaricarlo dal widget dei file.`
+            : `I've generated "${result.data.filename}". You can view or download it from the files widget.`);
+        }
+      }
+      
+      for (const result of failedTools) {
+        responses.push(language === 'it'
+          ? `Mi dispiace, si è verificato un errore: ${result.error}`
+          : `Sorry, an error occurred: ${result.error}`);
+      }
+      
+      reply = responses.join(' ');
+    }
 
     return new Response(JSON.stringify({ 
       reply, 
