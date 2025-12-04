@@ -1,42 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Message } from "@/components/jarvis/ChatMessage";
 import { Task } from "@/components/jarvis/TaskList";
 import { Appointment } from "@/components/jarvis/AppointmentWidget";
 import { Language } from "@/hooks/useSpeech";
-
-// Dummy AI responses for MVP
-const dummyResponses = {
-  en: [
-    "I've noted that down! Is there anything else you'd like me to help with?",
-    "Great question! Based on your schedule, I'd recommend tackling that tomorrow morning when you're most productive.",
-    "I've checked your calendar and you have a free slot at 3 PM today. Would you like me to block that time?",
-    "Sure thing! I'll add that to your task list with high priority.",
-    "Looking at your upcoming appointments, you have a meeting with Sarah at 2 PM. Don't forget to prepare the quarterly report!",
-    "I've analyzed your tasks and suggest focusing on the client proposal first—it has the nearest deadline.",
-    "That's a great idea! I can help you draft an email for that. Just let me know the key points you'd like to cover.",
-    "Based on your preferences, I'd recommend scheduling that call for late afternoon when your energy levels are typically higher.",
-  ],
-  it: [
-    "Ho preso nota! C'è qualcos'altro in cui posso aiutarti?",
-    "Ottima domanda! In base alla tua agenda, ti consiglio di affrontarlo domani mattina quando sei più produttivo.",
-    "Ho controllato il tuo calendario e hai uno slot libero alle 15:00. Vuoi che blocchi quel tempo?",
-    "Certo! Lo aggiungerò alla tua lista delle attività con priorità alta.",
-    "Guardando i tuoi prossimi appuntamenti, hai una riunione con Sarah alle 14:00. Non dimenticare di preparare il report trimestrale!",
-    "Ho analizzato i tuoi compiti e suggerisco di concentrarti prima sulla proposta del cliente—ha la scadenza più vicina.",
-    "Ottima idea! Posso aiutarti a scrivere un'email per questo. Fammi sapere i punti chiave che vuoi includere.",
-    "In base alle tue preferenze, ti consiglio di programmare quella chiamata nel tardo pomeriggio quando i tuoi livelli di energia sono tipicamente più alti.",
-  ],
-};
+import { sendMessageToAI, ChatMessage } from "@/lib/openai";
 
 const welcomeMessages = {
   en: "Good morning! I'm Jarvis, your personal assistant. I've reviewed your schedule—you have 3 appointments today and 3 tasks pending. How can I help you?",
   it: "Buongiorno! Sono Jarvis, il tuo assistente personale. Ho controllato la tua agenda—hai 3 appuntamenti oggi e 3 attività in sospeso. Come posso aiutarti?",
 };
 
-const getRandomResponse = (lang: Language) => {
-  const responses = dummyResponses[lang];
-  return responses[Math.floor(Math.random() * responses.length)];
-};
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -113,6 +86,7 @@ export const useJarvis = (language: Language) => {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [lastAssistantMessage, setLastAssistantMessage] = useState<string | null>(null);
+  const conversationHistoryRef = useRef<ChatMessage[]>([]);
 
   // Update welcome message when language changes
   const updateWelcomeMessage = useCallback((lang: Language) => {
@@ -142,22 +116,41 @@ export const useJarvis = (language: Language) => {
       setIsLoading(true);
       setLastAssistantMessage(null);
 
-      // Simulate AI thinking time
-      await new Promise((resolve) =>
-        setTimeout(resolve, 800 + Math.random() * 1200)
-      );
+      try {
+        const responseContent = await sendMessageToAI(
+          content,
+          lang,
+          conversationHistoryRef.current
+        );
 
-      const responseContent = getRandomResponse(lang);
-      const assistantMessage: Message = {
-        id: generateId(),
-        content: responseContent,
-        role: "assistant",
-        timestamp: new Date(),
-      };
+        // Update conversation history
+        conversationHistoryRef.current.push(
+          { role: "user", content },
+          { role: "assistant", content: responseContent }
+        );
 
-      setMessages((prev) => [...prev, assistantMessage]);
-      setLastAssistantMessage(responseContent);
-      setIsLoading(false);
+        const assistantMessage: Message = {
+          id: generateId(),
+          content: responseContent,
+          role: "assistant",
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+        setLastAssistantMessage(responseContent);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Sorry, I couldn't reach the server. Try again?";
+        const assistantMessage: Message = {
+          id: generateId(),
+          content: errorMessage,
+          role: "assistant",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setLastAssistantMessage(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
     },
     []
   );
