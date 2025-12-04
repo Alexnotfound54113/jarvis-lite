@@ -14,7 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          client: string | null
+          color: string | null
+          created_at: string
+          date: string
+          duration: number
+          id: string
+          location: string | null
+          title: string
+        }
+        Insert: {
+          client?: string | null
+          color?: string | null
+          created_at?: string
+          date: string
+          duration?: number
+          id?: string
+          location?: string | null
+          title: string
+        }
+        Update: {
+          client?: string | null
+          color?: string | null
+          created_at?: string
+          date?: string
+          duration?: number
+          id?: string
+          location?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      generated_files: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string
+          filename: string
+          id: string
+          mime_type: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          filename: string
+          id?: string
+          mime_type?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          filename?: string
+          id?: string
+          mime_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_files_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          client: string | null
+          completed: boolean
+          created_at: string
+          id: string
+          priority: string
+          title: string
+        }
+        Insert: {
+          client?: string | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          priority?: string
+          title: string
+        }
+        Update: {
+          client?: string | null
+          completed?: boolean
+          created_at?: string
+          id?: string
+          priority?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

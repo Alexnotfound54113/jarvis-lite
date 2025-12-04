@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/jarvis/Header";
 import { ChatMessage } from "@/components/jarvis/ChatMessage";
 import { ChatInput } from "@/components/jarvis/ChatInput";
@@ -8,29 +8,78 @@ import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
 import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
+import { GeneratedFilesWidget } from "@/components/jarvis/GeneratedFilesWidget";
 import { useJarvis } from "@/hooks/useJarvis";
+import { useDatabase } from "@/hooks/useDatabase";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
   const {
+    conversationId,
+    tasks,
+    appointments,
+    generatedFiles,
+    isLoading: dbLoading,
+    addTask,
+    toggleTask,
+    deleteTask,
+    addAppointment,
+    deleteAppointment,
+    deleteGeneratedFile,
+    saveMessage,
+    loadConversationHistory,
+    refreshTasks,
+    refreshAppointments,
+    refreshFiles,
+  } = useDatabase();
+
+  const handleToolResult = useCallback(
+    (results: any[]) => {
+      for (const result of results) {
+        if (result.success) {
+          if (result.type === "task") {
+            toast.success(
+              language === "en" ? "Task added" : "Attività aggiunta"
+            );
+            refreshTasks();
+          } else if (result.type === "appointment") {
+            toast.success(
+              language === "en"
+                ? "Appointment scheduled"
+                : "Appuntamento programmato"
+            );
+            refreshAppointments();
+          } else if (result.type === "file") {
+            toast.success(
+              language === "en" ? "File generated" : "File generato"
+            );
+            refreshFiles();
+          }
+        }
+      }
+    },
+    [language, refreshTasks, refreshAppointments, refreshFiles]
+  );
+
+  const {
     messages,
     isLoading,
     sendMessage,
-    tasks,
-    toggleTask,
-    addTask,
-    deleteTask,
-    appointments,
-    addAppointment,
-    deleteAppointment,
     lastAssistantMessage,
     updateWelcomeMessage,
     addVoiceExchange,
-  } = useJarvis(language);
+  } = useJarvis({
+    language,
+    conversationId,
+    saveMessage,
+    loadConversationHistory,
+    onToolResult: handleToolResult,
+  });
 
   const { speak, stop, isSpeaking } = useSpeech({
     language,
@@ -71,9 +120,20 @@ const Index = () => {
     sendMessage(message, language);
   };
 
-  const handleVoiceMessage = (userMessage: string, assistantResponse: string) => {
+  const handleVoiceMessage = (
+    userMessage: string,
+    assistantResponse: string
+  ) => {
     addVoiceExchange(userMessage, assistantResponse);
   };
+
+  if (dbLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+        <JarvisAvatar size="lg" isThinking />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-subtle">
@@ -110,7 +170,7 @@ const Index = () => {
           )}
         >
           <div className="overflow-hidden">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <AppointmentWidget
                 appointments={appointments}
                 onAdd={addAppointment}
@@ -122,6 +182,11 @@ const Index = () => {
                 onToggle={toggleTask}
                 onAdd={addTask}
                 onDelete={deleteTask}
+                language={language}
+              />
+              <GeneratedFilesWidget
+                files={generatedFiles}
+                onDelete={deleteGeneratedFile}
                 language={language}
               />
             </div>
@@ -169,7 +234,9 @@ const Index = () => {
         <button
           onClick={() => setVoiceConversationOpen(true)}
           className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-gradient-accent shadow-glow flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-40 animate-scale-in"
-          aria-label={language === "en" ? "Voice conversation" : "Conversazione vocale"}
+          aria-label={
+            language === "en" ? "Voice conversation" : "Conversazione vocale"
+          }
         >
           <JarvisAvatar size="md" interactive />
         </button>
