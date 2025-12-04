@@ -7,11 +7,12 @@ import { AppointmentWidget } from "@/components/jarvis/AppointmentWidget";
 import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
+import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useDatabase } from "@/hooks/useDatabase";
 import { sendMessageToAI, ChatMessage as AIChatMessage } from "@/lib/openai";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const welcomeMessages = {
@@ -37,6 +38,15 @@ const Index = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+
+  const handleVoiceMessage = useCallback((userMessage: string, assistantResponse: string) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: generateId(), content: userMessage, role: "user", timestamp: new Date() },
+      { id: generateId(), content: assistantResponse, role: "assistant", timestamp: new Date() },
+    ]);
+  }, []);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
   useEffect(() => { if (lastAssistantMessage && ttsEnabled) speak(lastAssistantMessage); }, [lastAssistantMessage, ttsEnabled, speak]);
@@ -91,10 +101,20 @@ const Index = () => {
       </div>
 
       <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
-        <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask Jarvis anything..." : "Chiedi qualcosa a Jarvis..."} language={language} />
+        <div className="flex gap-2">
+          <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask Jarvis anything..." : "Chiedi qualcosa a Jarvis..."} language={language} />
+          <button
+            onClick={() => setVoiceOpen(true)}
+            className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shadow-soft"
+            aria-label={language === "en" ? "Voice conversation" : "Conversazione vocale"}
+          >
+            <Mic className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} />
     </div>
   );
 };
