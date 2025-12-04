@@ -6,7 +6,7 @@ import { Language } from "@/hooks/useSpeech";
 export interface Appointment {
   id: string;
   title: string;
-  client: string;
+  client?: string;
   date: Date;
   duration: number; // minutes
   location?: string;
