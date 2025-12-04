@@ -1,7 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
-
 let audioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export async function speakWithJarvis(
   text: string,
@@ -14,14 +15,25 @@ export async function speakWithJarvis(
 
     onStart?.();
 
-    const { data, error } = await supabase.functions.invoke("text-to-speech", {
-      body: { text },
+    // Use direct fetch for binary audio response
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/text-to-speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+      },
+      body: JSON.stringify({ text }),
     });
 
-    if (error) {
-      console.error("Error calling TTS function:", error);
-      throw new Error("Failed to generate speech");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("TTS API error:", response.status, errorData);
+      throw new Error(errorData.error || "Failed to generate speech");
     }
+
+    // Get audio as ArrayBuffer
+    const audioData = await response.arrayBuffer();
 
     // Handle the audio response
     if (!audioContext) {
@@ -31,17 +43,6 @@ export async function speakWithJarvis(
     // Resume audio context if suspended (required for autoplay policies)
     if (audioContext.state === "suspended") {
       await audioContext.resume();
-    }
-
-    // Convert response to ArrayBuffer
-    let audioData: ArrayBuffer;
-    if (data instanceof ArrayBuffer) {
-      audioData = data;
-    } else if (data instanceof Blob) {
-      audioData = await data.arrayBuffer();
-    } else {
-      // If it's a base64 string or other format
-      throw new Error("Unexpected response format");
     }
 
     // Decode and play the audio
