@@ -61,6 +61,23 @@ const tools = [
   }
 ];
 
+// Helper to generate embeddings for RAG
+async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text,
+    }),
+  });
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -78,6 +95,32 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // RAG: Search for relevant context from uploaded files
+    let ragContext = '';
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+    
+    if (lastUserMessage?.content) {
+      try {
+        const queryEmbedding = await generateEmbedding(lastUserMessage.content, OPENAI_API_KEY);
+        
+        const { data: relevantChunks } = await supabase.rpc('match_file_chunks', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.5,
+          match_count: 5
+        });
+
+        if (relevantChunks && relevantChunks.length > 0) {
+          ragContext = `\n\nRELEVANT CONTEXT FROM UPLOADED FILES:\n${relevantChunks.map((chunk: any) => 
+            `[From ${chunk.filename} (${chunk.category})]: ${chunk.content}`
+          ).join('\n\n')}`;
+          console.log(`RAG: Found ${relevantChunks.length} relevant chunks`);
+        }
+      } catch (ragError) {
+        console.error('RAG search error:', ragError);
+        // Continue without RAG context
+      }
+    }
 
     // ============================================
     // JARVIS SYSTEM INSTRUCTIONS - EDIT HERE
@@ -98,6 +141,8 @@ CAPABILITIES:
 - Engage in intelligent conversation on any topic
 - Generate files (documents, code, notes) when requested
 - Remember past conversations and context
+- ACCESS AND USE UPLOADED COMPANY FILES to generate contracts, emails, and accounting documents using RAG (Retrieval Augmented Generation)
+- When generating documents, USE THE CONTEXT FROM UPLOADED FILES to match company style, templates, and information
 
 TOOLS AVAILABLE:
 - add_task: Add tasks to the user's task list. Use this when they ask to create/add a task or to-do item.
@@ -149,9 +194,13 @@ STILE DI RISPOSTA:
 - Quando usi gli strumenti, riconosci brevemente cosa hai fatto`;
     // ============================================
 
-    const systemPrompt = language === 'it' ? jarvisInstructionsIT : jarvisInstructionsEN;
+    const baseSystemPrompt = language === 'it' ? jarvisInstructionsIT : jarvisInstructionsEN;
+    const systemPrompt = baseSystemPrompt + ragContext;
 
     console.log('Calling OpenAI with messages:', JSON.stringify(messages));
+    if (ragContext) {
+      console.log('RAG context added to system prompt');
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
