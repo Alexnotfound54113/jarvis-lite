@@ -113,6 +113,10 @@ export default {
           "0%, 60%, 100%": { transform: "translateY(0)" },
           "30%": { transform: "translateY(-4px)" },
         },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-100%)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -124,6 +128,7 @@ export default {
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
         "mic-pulse": "mic-pulse 1.5s ease-in-out infinite",
         "typing-dot": "typing-dot 1.4s ease-in-out infinite",
+        "slide-in-left": "slide-in-left 0.3s ease-out",
       },
     },
   },

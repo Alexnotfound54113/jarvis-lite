@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.realtime-session]
 verify_jwt = false
+
+[functions.process-file]
+verify_jwt = false
+
+[functions.semantic-search]
+verify_jwt = false
