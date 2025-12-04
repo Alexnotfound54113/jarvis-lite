@@ -26,15 +26,16 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
   const {
-    tasks,
-    appointments,
-    generatedFiles,
+    tasks = [],
+    appointments = [],
+    generatedFiles = [],
     addTask,
     toggleTask,
     deleteTask,
     addAppointment,
     deleteAppointment,
     deleteGeneratedFile,
+    isLoading: dbLoading,
   } = useDatabase();
 
   const [messages, setMessages] = useState<Message[]>([

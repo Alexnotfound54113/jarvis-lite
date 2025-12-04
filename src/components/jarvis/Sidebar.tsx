@@ -52,13 +52,17 @@ const tabs = {
   },
 };
 
-export const Sidebar = ({ open, onOpenChange, generatedFiles, onDeleteFile, language }: SidebarProps) => {
-  const t = tabs[language];
+export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile, language }: SidebarProps) => {
+  const t = tabs[language] || tabs.en;
   const [activeTab, setActiveTab] = useState<TabType>("files");
   const [previewFile, setPreviewFile] = useState<GeneratedFile | null>(null);
 
+  // Ensure generatedFiles is always an array
+  const safeFiles = Array.isArray(generatedFiles) ? generatedFiles : [];
+
   const handleDownload = (file: GeneratedFile) => {
-    const blob = new Blob([file.content], { type: file.mime_type });
+    if (!file?.content || !file?.filename) return;
+    const blob = new Blob([file.content], { type: file.mime_type || "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -70,16 +74,20 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles, onDeleteFile, lang
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString(language === "it" ? "it-IT" : "en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    try {
+      return new Date(dateStr).toLocaleDateString(language === "it" ? "it-IT" : "en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
   };
 
   const menuItems: { id: TabType; icon: typeof FileText; label: string; count?: number }[] = [
-    { id: "files", icon: FileText, label: t.files, count: generatedFiles.length },
+    { id: "files", icon: FileText, label: t.files, count: safeFiles.length },
     { id: "conversations", icon: MessageSquare, label: t.conversations },
     { id: "tasks", icon: CheckSquare, label: t.tasks },
     { id: "appointments", icon: Calendar, label: t.appointments },
@@ -124,18 +132,18 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles, onDeleteFile, lang
             <div className="p-4">
               {activeTab === "files" && (
                 <div className="space-y-3">
-                  {generatedFiles.length === 0 ? (
+                  {safeFiles.length === 0 ? (
                     <div className="text-center py-8">
                       <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
                       <p className="font-medium text-muted-foreground">{t.noFiles}</p>
                       <p className="text-sm text-muted-foreground/70 mt-1">{t.noFilesDesc}</p>
                     </div>
                   ) : (
-                    generatedFiles.map((file) => (
+                    safeFiles.map((file) => (
                       <div key={file.id} className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{file.filename}</p>
+                            <p className="font-medium truncate">{file.filename || "Untitled"}</p>
                             <p className="text-xs text-muted-foreground">{formatDate(file.created_at)}</p>
                           </div>
                         </div>
