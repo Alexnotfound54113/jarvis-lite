@@ -8,11 +8,12 @@ import { TaskList } from "@/components/friday/TaskList";
 import { FridayAvatar } from "@/components/friday/FridayAvatar";
 import { SettingsSheet } from "@/components/friday/SettingsSheet";
 import { VoiceConversation } from "@/components/friday/VoiceConversation";
+import { FilesSidebar } from "@/components/friday/FilesSidebar";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useDatabase } from "@/hooks/useDatabase";
 import { sendMessageToAI, ChatMessage as AIChatMessage } from "@/lib/openai";
-import { ChevronDown, ChevronUp, Mic } from "lucide-react";
+import { ChevronDown, ChevronUp, Mic, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const welcomeMessages = {
@@ -39,6 +40,7 @@ const Index = () => {
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
 
   const handleVoiceMessage = useCallback((userMessage: string, assistantResponse: string) => {
     setMessages((prev) => [
@@ -108,6 +110,13 @@ const Index = () => {
 
       <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <div className="flex gap-2">
+          <button
+            onClick={() => setFilesOpen(true)}
+            className="flex-shrink-0 w-12 h-12 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center hover:bg-secondary/80 transition-colors shadow-soft"
+            aria-label={language === "en" ? "Files" : "File"}
+          >
+            <FolderOpen className="w-5 h-5" />
+          </button>
           <ChatInput onSend={handleSend} isLoading={isLoading} placeholder={language === "en" ? "Ask FRIDAY anything..." : "Chiedi qualcosa a FRIDAY..."} language={language} />
           <button
             onClick={() => setVoiceOpen(true)}
@@ -121,6 +130,7 @@ const Index = () => {
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} />
+      <FilesSidebar isOpen={filesOpen} onClose={() => setFilesOpen(false)} language={language} />
     </div>
   );
 };
