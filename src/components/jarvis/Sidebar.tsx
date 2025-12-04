@@ -1,10 +1,10 @@
-import { FileText, MessageSquare, CheckSquare, Calendar, Download, Eye, Trash2, X } from "lucide-react";
+import { FileText, MessageSquare, CheckSquare, Calendar, Download, Eye, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface GeneratedFile {
@@ -18,8 +18,8 @@ interface GeneratedFile {
 interface SidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  generatedFiles: GeneratedFile[];
-  onDeleteFile: (id: string) => void;
+  generatedFiles?: GeneratedFile[];
+  onDeleteFile?: (id: string) => void;
   language: "en" | "it";
 }
 
@@ -27,50 +27,51 @@ type TabType = "files" | "conversations" | "tasks" | "appointments";
 
 const tabs = {
   en: {
-    files: "Generated Files",
-    conversations: "Conversations",
+    files: "Files",
+    conversations: "Chats",
     tasks: "Tasks",
-    appointments: "Appointments",
+    appointments: "Calendar",
     noFiles: "No files generated yet",
     noFilesDesc: "Ask Jarvis to create documents, and they'll appear here.",
     preview: "Preview",
     download: "Download",
-    delete: "Delete",
     comingSoon: "Coming soon...",
   },
   it: {
-    files: "File Generati",
-    conversations: "Conversazioni",
+    files: "File",
+    conversations: "Chat",
     tasks: "Attività",
-    appointments: "Appuntamenti",
+    appointments: "Calendario",
     noFiles: "Nessun file generato",
     noFilesDesc: "Chiedi a Jarvis di creare documenti e appariranno qui.",
     preview: "Anteprima",
     download: "Scarica",
-    delete: "Elimina",
     comingSoon: "Prossimamente...",
   },
 };
 
-export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile, language }: SidebarProps) => {
+export const Sidebar = ({ open, onOpenChange, generatedFiles, onDeleteFile, language }: SidebarProps) => {
   const t = tabs[language] || tabs.en;
   const [activeTab, setActiveTab] = useState<TabType>("files");
   const [previewFile, setPreviewFile] = useState<GeneratedFile | null>(null);
 
-  // Ensure generatedFiles is always an array
   const safeFiles = Array.isArray(generatedFiles) ? generatedFiles : [];
 
   const handleDownload = (file: GeneratedFile) => {
     if (!file?.content || !file?.filename) return;
-    const blob = new Blob([file.content], { type: file.mime_type || "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([file.content], { type: file.mime_type || "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Download error:", e);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -86,12 +87,23 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile,
     }
   };
 
-  const menuItems: { id: TabType; icon: typeof FileText; label: string; count?: number }[] = [
-    { id: "files", icon: FileText, label: t.files, count: safeFiles.length },
-    { id: "conversations", icon: MessageSquare, label: t.conversations },
-    { id: "tasks", icon: CheckSquare, label: t.tasks },
-    { id: "appointments", icon: Calendar, label: t.appointments },
-  ];
+  const TabButton = ({ id, icon, label, count }: { id: TabType; icon: ReactNode; label: string; count?: number }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+        activeTab === id ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {icon}
+      {label}
+      {count !== undefined && count > 0 && (
+        <Badge variant="secondary" className={cn("ml-1 h-5 px-1.5", activeTab === id && "bg-primary-foreground/20 text-primary-foreground")}>
+          {count}
+        </Badge>
+      )}
+    </button>
+  );
 
   return (
     <>
@@ -101,33 +113,15 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile,
             <SheetTitle className="text-left">Menu</SheetTitle>
           </SheetHeader>
 
-          {/* Tab Navigation */}
           <div className="border-b overflow-x-auto">
             <div className="flex p-2 gap-1">
-              {menuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                      activeTab === item.id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.label}
-                    {item.count !== undefined && item.count > 0 && (
-                      <Badge variant="secondary" className={cn("ml-1 h-5 px-1.5", activeTab === item.id && "bg-primary-foreground/20 text-primary-foreground")}>
-                        {item.count}
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <TabButton id="files" icon={<FileText className="w-4 h-4" />} label={t.files} count={safeFiles.length} />
+              <TabButton id="conversations" icon={<MessageSquare className="w-4 h-4" />} label={t.conversations} />
+              <TabButton id="tasks" icon={<CheckSquare className="w-4 h-4" />} label={t.tasks} />
+              <TabButton id="appointments" icon={<Calendar className="w-4 h-4" />} label={t.appointments} />
+            </div>
           </div>
 
-          {/* Content */}
           <ScrollArea className="flex-1">
             <div className="p-4">
               {activeTab === "files" && (
@@ -156,9 +150,11 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile,
                             <Download className="w-3 h-3 mr-1" />
                             {t.download}
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDeleteFile(file.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {onDeleteFile && (
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDeleteFile(file.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -176,7 +172,6 @@ export const Sidebar = ({ open, onOpenChange, generatedFiles = [], onDeleteFile,
         </SheetContent>
       </Sheet>
 
-      {/* Preview Dialog */}
       <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>

@@ -123,7 +123,6 @@ const Index = () => {
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} />
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} generatedFiles={generatedFiles} onDeleteFile={deleteGeneratedFile} language={language} />
     </div>
   );
 };
