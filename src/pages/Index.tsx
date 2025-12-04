@@ -8,6 +8,7 @@ import { TaskList } from "@/components/jarvis/TaskList";
 import { JarvisAvatar } from "@/components/jarvis/JarvisAvatar";
 import { SettingsSheet } from "@/components/jarvis/SettingsSheet";
 import { VoiceConversation } from "@/components/jarvis/VoiceConversation";
+import { Sidebar } from "@/components/jarvis/Sidebar";
 import { useSpeech } from "@/hooks/useSpeech";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useDatabase } from "@/hooks/useDatabase";
@@ -24,7 +25,7 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const Index = () => {
   const { language, ttsEnabled } = useSettings();
-  const { tasks = [], appointments = [], addTask, toggleTask, deleteTask, addAppointment, deleteAppointment } = useDatabase();
+  const { tasks = [], appointments = [], generatedFiles = [], addTask, toggleTask, deleteTask, addAppointment, deleteAppointment, deleteGeneratedFile } = useDatabase();
 
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", content: welcomeMessages[language], role: "assistant", timestamp: new Date() },
@@ -39,6 +40,7 @@ const Index = () => {
   const [showWidgets, setShowWidgets] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleVoiceMessage = useCallback((userMessage: string, assistantResponse: string) => {
     setMessages((prev) => [
@@ -70,7 +72,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-subtle">
-      <Header onMenuClick={() => {}} onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
+      <Header onMenuClick={() => setSidebarOpen(true)} onSettingsClick={() => setSettingsOpen(true)} isSpeaking={isSpeaking} />
 
       <div className="px-4 pt-3">
         <button onClick={() => setShowWidgets(!showWidgets)} className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground py-2 hover:text-foreground transition-colors">
@@ -89,8 +91,14 @@ const Index = () => {
       <div className="flex-1 overflow-y-auto px-4 pb-4 scroll-smooth scrollbar-hide">
         {messages.length === 1 && (
           <div className="flex flex-col items-center py-8 animate-fade-in">
-            <JarvisAvatar size="lg" isThinking={isLoading || isSpeaking} />
-            <p className="text-sm text-muted-foreground mt-4">{language === "en" ? "Ready to assist" : "Pronto ad assisterti"}</p>
+            <button
+              onClick={() => setVoiceOpen(true)}
+              className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full transition-transform hover:scale-105 active:scale-95"
+              aria-label={language === "en" ? "Start voice conversation" : "Inizia conversazione vocale"}
+            >
+              <JarvisAvatar size="lg" isThinking={isLoading || isSpeaking} />
+            </button>
+            <p className="text-sm text-muted-foreground mt-4">{language === "en" ? "Tap to speak" : "Tocca per parlare"}</p>
           </div>
         )}
         <div className="space-y-4">
@@ -115,6 +123,7 @@ const Index = () => {
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} generatedFiles={generatedFiles} onDeleteFile={deleteGeneratedFile} language={language} />
     </div>
   );
 };
