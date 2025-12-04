@@ -153,14 +153,17 @@ export const VoiceConversation = ({
     recognition.lang = languageCodes[language];
 
     let finalTranscript = "";
+    let lastProcessedIndex = 0;
 
     recognition.onresult = (event) => {
       let interim = "";
       
-      for (let i = 0; i < event.results.length; i++) {
+      // Only process new results to avoid duplicates
+      for (let i = lastProcessedIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           finalTranscript += result[0].transcript + " ";
+          lastProcessedIndex = i + 1;
         } else {
           interim += result[0].transcript;
         }
