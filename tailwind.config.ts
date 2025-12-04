@@ -53,9 +53,9 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         jarvis: {
-          glass: "hsl(var(--jarvis-glass))",
-          "glass-border": "hsl(var(--jarvis-glass-border))",
-          glow: "hsl(var(--jarvis-blue-glow))",
+          glass: "hsl(var(--friday-glass))",
+          "glass-border": "hsl(var(--friday-glass-border))",
+          glow: "hsl(var(--friday-blue-glow))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
