@@ -3,6 +3,7 @@ import { X, Mic, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
 import type { SpeechRecognitionInstance } from "@/types/speech";
+import { sendMessageToAI, ChatMessage } from "@/lib/openai";
 
 interface VoiceConversationProps {
   isOpen: boolean;
@@ -14,27 +15,6 @@ interface VoiceConversationProps {
 const languageCodes = {
   en: "en-US",
   it: "it-IT",
-};
-
-const dummyResponses = {
-  en: [
-    "I've noted that down! Is there anything else you'd like me to help with?",
-    "Great question! Based on your schedule, I'd recommend tackling that tomorrow morning.",
-    "I've checked your calendar and you have a free slot at 3 PM today.",
-    "Sure thing! I'll add that to your task list with high priority.",
-    "That's a great idea! Let me know how I can help further.",
-    "I understand. Would you like me to set a reminder for that?",
-    "Absolutely! I'm here to help with whatever you need.",
-  ],
-  it: [
-    "Ho preso nota! C'è qualcos'altro in cui posso aiutarti?",
-    "Ottima domanda! Ti consiglio di affrontarlo domani mattina.",
-    "Ho controllato il tuo calendario e hai uno slot libero alle 15:00.",
-    "Certo! Lo aggiungerò alla tua lista con priorità alta.",
-    "Ottima idea! Fammi sapere come posso aiutarti ancora.",
-    "Capisco. Vuoi che imposti un promemoria per questo?",
-    "Assolutamente! Sono qui per aiutarti con tutto ciò di cui hai bisogno.",
-  ],
 };
 
 const statusMessages = {
@@ -70,6 +50,7 @@ export const VoiceConversation = ({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const conversationHistoryRef = useRef<ChatMessage[]>([]);
 
   const t = statusMessages[language];
 
@@ -123,14 +104,23 @@ export const VoiceConversation = ({
 
   // Generate response
   const generateResponse = useCallback(
-    (userText: string) => {
+    async (userText: string) => {
       setState("processing");
       setTranscript(userText);
 
-      // Simulate AI thinking
-      setTimeout(() => {
-        const responses = dummyResponses[language];
-        const responseText = responses[Math.floor(Math.random() * responses.length)];
+      try {
+        const responseText = await sendMessageToAI(
+          userText,
+          language,
+          conversationHistoryRef.current
+        );
+
+        // Update conversation history
+        conversationHistoryRef.current.push(
+          { role: "user", content: userText },
+          { role: "assistant", content: responseText }
+        );
+
         setResponse(responseText);
         
         // Save to chat history
@@ -140,7 +130,13 @@ export const VoiceConversation = ({
         speak(responseText, () => {
           // After speaking, go back to idle (user can tap to continue)
         });
-      }, 500 + Math.random() * 1000);
+      } catch (error) {
+        const errorMessage = language === "en"
+          ? "Sorry, I couldn't reach the server. Try again?"
+          : "Scusa, non riesco a raggiungere il server. Riprova?";
+        setResponse(errorMessage);
+        speak(errorMessage);
+      }
     },
     [language, onMessage, speak]
   );
