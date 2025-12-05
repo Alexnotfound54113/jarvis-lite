@@ -7,7 +7,16 @@ export interface RealtimeEvent {
   text?: string;
   item_id?: string;
   response_id?: string;
+  call_id?: string;
+  name?: string;
+  arguments?: string;
   [key: string]: unknown;
+}
+
+export interface ToolCall {
+  call_id: string;
+  name: string;
+  arguments: Record<string, unknown>;
 }
 
 export class RealtimeChat {
@@ -145,6 +154,30 @@ export class RealtimeChat {
     };
 
     this.dc.send(JSON.stringify(event));
+    this.dc.send(JSON.stringify({ type: 'response.create' }));
+  }
+
+  // Send tool result back to the conversation
+  sendToolResult(callId: string, result: string) {
+    if (!this.dc || this.dc.readyState !== 'open') {
+      console.error('Data channel not ready for tool result');
+      return;
+    }
+
+    console.log("Sending tool result for call:", callId);
+
+    // Create function call output item
+    const outputEvent = {
+      type: 'conversation.item.create',
+      item: {
+        type: 'function_call_output',
+        call_id: callId,
+        output: result
+      }
+    };
+
+    this.dc.send(JSON.stringify(outputEvent));
+    // Request the AI to respond to the tool result
     this.dc.send(JSON.stringify({ type: 'response.create' }));
   }
 
