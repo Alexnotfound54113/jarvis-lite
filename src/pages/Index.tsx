@@ -50,6 +50,13 @@ const Index = () => {
     ]);
   }, []);
 
+  // Handle tool results from voice conversation
+  const handleToolResult = useCallback((results: any[]) => {
+    console.log("Voice tool results:", results);
+    // The useDatabase hook will automatically refresh via realtime subscriptions
+    // or we can manually trigger a refresh if needed
+  }, []);
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
   useEffect(() => { if (lastAssistantMessage && ttsEnabled) speak(lastAssistantMessage); }, [lastAssistantMessage, ttsEnabled, speak]);
   useEffect(() => { setMessages((prev) => prev.length >= 1 && prev[0].id === "welcome" ? [{ ...prev[0], content: welcomeMessages[language] }, ...prev.slice(1)] : prev); }, [language]);
@@ -129,7 +136,7 @@ const Index = () => {
       </div>
 
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} />
+      <VoiceConversation isOpen={voiceOpen} onClose={() => setVoiceOpen(false)} language={language} onMessage={handleVoiceMessage} onToolResult={handleToolResult} />
       <FilesSidebar isOpen={filesOpen} onClose={() => setFilesOpen(false)} language={language} />
     </div>
   );

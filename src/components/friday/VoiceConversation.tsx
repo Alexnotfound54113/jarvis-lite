@@ -3,12 +3,15 @@ import { X, Mic, Volume2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Language } from "@/hooks/useSpeech";
 import { RealtimeChat, RealtimeEvent } from "@/utils/RealtimeChat";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface VoiceConversationProps {
   isOpen: boolean;
   onClose: () => void;
   language: Language;
   onMessage: (userMessage: string, assistantResponse: string) => void;
+  onToolResult?: (results: any[]) => void;
 }
 
 const statusMessages = {
@@ -32,11 +35,101 @@ const statusMessages = {
 
 type ConversationState = "connecting" | "idle" | "listening" | "processing" | "speaking" | "error";
 
+// Execute tool and return result
+async function executeTool(name: string, args: Record<string, unknown>, language: Language): Promise<{ success: boolean; message: string; data?: any }> {
+  console.log("Executing tool:", name, args);
+  
+  try {
+    if (name === "add_task") {
+      const { data: task, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: args.title as string,
+          client: (args.client as string) || null,
+          priority: (args.priority as string) || 'medium',
+          completed: false
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        success: true,
+        message: language === 'it' 
+          ? `Attività "${task.title}" aggiunta alla lista.`
+          : `Task "${task.title}" added to your list.`,
+        data: task
+      };
+    } 
+    
+    if (name === "add_appointment") {
+      const { data: appointment, error } = await supabase
+        .from('appointments')
+        .insert({
+          title: args.title as string,
+          client: (args.client as string) || null,
+          date: args.date as string,
+          duration: (args.duration as number) || 30,
+          location: (args.location as string) || null,
+          color: 'blue'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      return {
+        success: true,
+        message: language === 'it'
+          ? `Appuntamento "${appointment.title}" programmato.`
+          : `Appointment "${appointment.title}" scheduled.`,
+        data: appointment
+      };
+    } 
+    
+    if (name === "generate_file") {
+      const { data: file, error } = await supabase
+        .from('generated_files')
+        .insert({
+          filename: args.filename as string,
+          content: args.content as string,
+          mime_type: (args.mime_type as string) || 'text/plain'
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast.success(language === 'it' ? 'File generato!' : 'File generated!', {
+        description: file.filename
+      });
+      
+      return {
+        success: true,
+        message: language === 'it'
+          ? `File "${file.filename}" generato con successo.`
+          : `File "${file.filename}" generated successfully.`,
+        data: file
+      };
+    }
+    
+    return { success: false, message: `Unknown tool: ${name}` };
+  } catch (error) {
+    console.error("Tool execution error:", error);
+    return { 
+      success: false, 
+      message: `Error executing ${name}: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    };
+  }
+}
+
 export const VoiceConversation = ({
   isOpen,
   onClose,
   language,
   onMessage,
+  onToolResult,
 }: VoiceConversationProps) => {
   const [state, setState] = useState<ConversationState>("connecting");
   const [transcript, setTranscript] = useState("");
@@ -46,10 +139,11 @@ export const VoiceConversation = ({
   const chatRef = useRef<RealtimeChat | null>(null);
   const currentUserTranscript = useRef<string>("");
   const currentAssistantResponse = useRef<string>("");
+  const pendingToolCalls = useRef<Map<string, { name: string; arguments: string }>>(new Map());
 
   const t = statusMessages[language];
 
-  const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+  const handleRealtimeEvent = useCallback(async (event: RealtimeEvent) => {
     switch (event.type) {
       case "session.created":
         console.log("Session created");
@@ -87,6 +181,52 @@ export const VoiceConversation = ({
         setResponse(event.transcript || currentAssistantResponse.current);
         break;
 
+      // Handle function call arguments being built
+      case "response.function_call_arguments.delta":
+        // Accumulate arguments
+        const callId = event.call_id as string;
+        const existing = pendingToolCalls.current.get(callId);
+        if (existing) {
+          existing.arguments += event.delta || "";
+        } else {
+          pendingToolCalls.current.set(callId, {
+            name: event.name || "",
+            arguments: event.delta || ""
+          });
+        }
+        break;
+
+      // Handle completed function call
+      case "response.function_call_arguments.done":
+        const toolCallId = event.call_id as string;
+        const toolName = event.name as string;
+        const toolArgs = event.arguments as string;
+        
+        console.log("Function call completed:", toolName, toolArgs);
+        
+        try {
+          const parsedArgs = JSON.parse(toolArgs);
+          const result = await executeTool(toolName, parsedArgs, language);
+          
+          // Notify parent about tool result
+          if (onToolResult && result.data) {
+            onToolResult([{ type: toolName.replace('add_', '').replace('generate_', ''), success: result.success, data: result.data }]);
+          }
+          
+          // Send result back to the conversation
+          chatRef.current?.sendToolResult(toolCallId, JSON.stringify(result));
+        } catch (error) {
+          console.error("Error executing tool:", error);
+          chatRef.current?.sendToolResult(toolCallId, JSON.stringify({ 
+            success: false, 
+            message: "Error executing tool" 
+          }));
+        }
+        
+        // Clean up
+        pendingToolCalls.current.delete(toolCallId);
+        break;
+
       case "response.done":
         // Save the exchange to chat history
         if (currentUserTranscript.current && currentAssistantResponse.current) {
@@ -106,7 +246,7 @@ export const VoiceConversation = ({
           console.log("Event:", event.type);
         }
     }
-  }, [onMessage]);
+  }, [onMessage, onToolResult, language]);
 
   // Initialize connection when opened
   useEffect(() => {
