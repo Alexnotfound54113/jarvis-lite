@@ -1,8 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// @ts-ignore - pdf-parse for extracting text from PDFs
-import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
+// @ts-ignore - pdfjs-dist for extracting text from PDFs
+import * as pdfjsLib from "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.mjs";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,14 +73,25 @@ async function extractText(file: File, content: ArrayBuffer): Promise<string> {
     return new TextDecoder().decode(content);
   }
   
-  // PDF - use pdf-parse library
+  // PDF - use pdfjs-dist library
   if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
     try {
-      console.log('Parsing PDF with pdf-parse library...');
+      console.log('Parsing PDF with pdfjs-dist library...');
       const uint8Array = new Uint8Array(content);
-      const pdfData = await pdfParse(uint8Array);
-      console.log(`PDF parsed successfully, extracted ${pdfData.text.length} characters`);
-      return pdfData.text;
+      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+      
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n';
+      }
+      
+      console.log(`PDF parsed successfully, extracted ${fullText.length} characters from ${pdf.numPages} pages`);
+      return fullText;
     } catch (pdfError) {
       console.error('PDF parse error:', pdfError);
       // Fallback: try basic text extraction
