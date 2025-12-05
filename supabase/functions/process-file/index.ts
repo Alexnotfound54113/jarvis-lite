@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-ignore - pdf-parse for extracting text from PDFs
+import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,25 +73,26 @@ async function extractText(file: File, content: ArrayBuffer): Promise<string> {
     return new TextDecoder().decode(content);
   }
   
-  // PDF - basic extraction (for complex PDFs, would need pdf-parse library)
+  // PDF - use pdf-parse library
   if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-    // Try to extract text from PDF
-    const text = new TextDecoder().decode(content);
-    // Extract text between stream markers (basic approach)
-    const textMatch = text.match(/stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g);
-    if (textMatch) {
-      return textMatch.map(m => m.replace(/stream[\r\n]+/, '').replace(/[\r\n]+endstream/, '')).join(' ');
+    try {
+      console.log('Parsing PDF with pdf-parse library...');
+      const uint8Array = new Uint8Array(content);
+      const pdfData = await pdfParse(uint8Array);
+      console.log(`PDF parsed successfully, extracted ${pdfData.text.length} characters`);
+      return pdfData.text;
+    } catch (pdfError) {
+      console.error('PDF parse error:', pdfError);
+      // Fallback: try basic text extraction
+      const text = new TextDecoder().decode(content);
+      return text.replace(/[^\x20-\x7E\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
     }
-    // Fallback: return raw text content
-    return text.replace(/[^\x20-\x7E\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
   }
   
   // Word documents (docx) - basic XML extraction
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileName.endsWith('.docx')) {
-    // DOCX is a zip file with XML inside
     const text = new TextDecoder().decode(content);
-    // Extract text from XML tags
     const matches = text.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
     if (matches) {
       return matches.map(m => m.replace(/<[^>]+>/g, '')).join(' ');
